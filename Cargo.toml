@@ -1,0 +1,21 @@
+[package]
+name = "ioc"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+ioc_core = { workspace = true }
+
+
+[workspace]
+members = [
+    "ioc_core",
+    "ioc_derive",
+]
+
+[workspace.dependencies]
+linkme = "0.3.18"
+ioc_core = { path = "./ioc_core" }
+ioc_derive = { path = "./ioc_derive" }
