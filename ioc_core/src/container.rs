@@ -78,7 +78,7 @@ unsafe fn drop<T>(ptr: &mut [u8], offset: usize) {
 impl BeanContainerBuilder {
     pub fn push<T: 'static + Bean>(&mut self) {
         let id = self.bean_definitions.len();
-        self.bean_definitions.push(BeanDefinition::of::<T>());
+        self.bean_definitions.push(T::definition());
         if std::mem::needs_drop::<T>() {
             self.drop_methods.entry(id).or_insert(drop::<T>);
         }

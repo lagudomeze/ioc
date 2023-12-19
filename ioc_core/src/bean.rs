@@ -1,30 +1,57 @@
-use std::{any::{TypeId, type_name}, alloc::Layout};
+use std::{
+    alloc::Layout,
+    any::{type_name, TypeId},
+    mem::needs_drop,
+    ptr::drop_in_place,
+};
 
 use log::debug;
 
-pub trait Bean {}
+pub trait Bean {
+    fn definition() -> BeanDefinition
+    where
+        Self: Sized + 'static,
+    {
+        let type_id = TypeId::of::<Self>();
+        let name = type_name::<Self>();
+        let layout = Layout::new::<Self>();
+
+        let maybe_drop: Option<DropMethod> = if needs_drop::<Self>() {
+            Some(drop::<Self>)
+        } else {
+            None
+        };
+
+        debug!("name:{name} id:{type_id:?} layout size:{}", layout.size());
+
+        BeanDefinition {
+            name,
+            type_id,
+            layout,
+            maybe_drop,
+        }
+    }
+}
+
+#[derive(Eq, Hash, PartialEq, Debug, Clone, Copy)]
+pub struct BeanId(usize);
+
+pub trait BeanContainer {
+    fn id<T: Bean>() -> Result<BeanId, >;
+}
+
+pub type DropMethod = unsafe fn(*mut u8);
+
+unsafe fn drop<T>(ptr: *mut u8) {
+    drop_in_place(ptr.cast::<T>());
+}
 
 #[derive(Debug)]
 pub struct BeanDefinition {
     pub name: &'static str,
     pub type_id: TypeId,
     pub layout: Layout,
-}
-
-impl BeanDefinition {
-    pub fn of<T: 'static>() -> Self {
-        let type_id = TypeId::of::<T>();
-        let name = type_name::<T>();
-        let layout = Layout::new::<T>();
-
-        debug!("name:{name} id:{type_id:?} layout size:{}", layout.size());
-
-        Self {
-            name,
-            type_id,
-            layout,
-        }
-    }
+    pub maybe_drop: Option<DropMethod>,
 }
 
 #[cfg(test)]
@@ -33,11 +60,13 @@ mod tests {
 
     struct A(usize);
 
+    impl Bean for A {}
+
     #[test]
     fn it_works() {
-        let definition = BeanDefinition::of::<A>();
+        let definition = A::definition();
         assert_eq!(definition.name, "ioc_core::bean::tests::A");
         assert_eq!(definition.type_id, TypeId::of::<A>());
-        assert_eq!(definition.layout.size(), (usize::BITS/8) as usize);
+        assert_eq!(definition.layout.size(), (usize::BITS / 8) as usize);
     }
 }

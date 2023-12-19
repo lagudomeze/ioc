@@ -1,6 +1,7 @@
 use std::sync::OnceLock;
 
 pub use log::*;
+pub mod error;
 
 static GLOBAL_CONTEXT: OnceLock<ApplicationContext> = OnceLock::new();
 
