@@ -7,6 +7,8 @@ use std::{
 
 use log::debug;
 
+use crate::error::IocError;
+
 pub trait Bean {
     fn definition() -> BeanDefinition
     where
@@ -37,7 +39,11 @@ pub trait Bean {
 pub struct BeanId(usize);
 
 pub trait BeanContainer {
-    fn id<T: Bean>() -> Result<BeanId, >;
+    fn id<T: Bean>() -> Result<BeanId, IocError> {
+        Err(IocError::NotRegisteredBean {
+            type_name: type_name::<T>(),
+        })
+    }
 }
 
 pub type DropMethod = unsafe fn(*mut u8);
