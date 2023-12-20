@@ -1,7 +1,5 @@
 use std::{alloc::Layout, any::TypeId, collections::HashMap, ptr::drop_in_place};
 
-use log::warn;
-
 use crate::bean::{Bean, BeanDefinition};
 
 pub type BeanId = usize;

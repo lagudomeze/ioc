@@ -10,36 +10,78 @@ use log::debug;
 use crate::error::IocError;
 
 pub trait Bean {
+    fn dependencies() -> Vec<Dependency> {
+        Vec::new()
+    }
+
+    fn type_id() -> TypeId
+    where
+        Self: 'static,
+    {
+        TypeId::of::<Self>()
+    }
+
+    fn name() -> &'static str {
+        type_name::<Self>()
+    }
+
+    fn layout() -> Layout
+    where
+        Self: Sized,
+    {
+        Layout::new::<Self>()
+    }
+
+    fn maybe_drop() -> Option<DropMethod>
+    where
+        Self: Sized,
+    {
+        if needs_drop::<Self>() {
+            Some(drop::<Self>)
+        } else {
+            None
+        }
+    }
+
     fn definition() -> BeanDefinition
     where
         Self: Sized + 'static,
     {
-        let type_id = TypeId::of::<Self>();
-        let name = type_name::<Self>();
-        let layout = Layout::new::<Self>();
+        let type_id = Self::type_id();
+        let name = Self::name();
+        let type_name = type_name::<Self>();
+        let layout = Self::layout();
+        let maybe_drop = Self::maybe_drop();
 
-        let maybe_drop: Option<DropMethod> = if needs_drop::<Self>() {
-            Some(drop::<Self>)
-        } else {
-            None
-        };
-
-        debug!("name:{name} id:{type_id:?} layout size:{}", layout.size());
+        debug!(
+            "type name:{name} id:{type_id:?} layout size:{}",
+            layout.size()
+        );
 
         BeanDefinition {
             name,
+            type_name,
             type_id,
             layout,
+            dependencies: Self::dependencies(),
             maybe_drop,
         }
     }
+
+    fn init<C: BeanContainer>(_container: C) -> Self;
 }
 
 #[derive(Eq, Hash, PartialEq, Debug, Clone, Copy)]
 pub struct BeanId(usize);
 
+impl From<usize> for BeanId {
+    fn from(value: usize) -> Self {
+        Self(value)
+    }
+}
+
 pub trait BeanContainer {
-    fn id<T: Bean>() -> Result<BeanId, IocError> {
+    fn id<T: Bean>(&self) -> Result<BeanId, IocError> {
         Err(IocError::NotRegisteredBean {
             type_name: type_name::<T>(),
         })
@@ -53,10 +95,46 @@ unsafe fn drop<T>(ptr: *mut u8) {
 }
 
 #[derive(Debug)]
+pub struct Dependency {
+    pub name: Option<&'static str>,
+    pub type_id: TypeId,
+    pub type_name: &'static str,
+}
+
+impl Dependency {
+    pub fn of<T>() -> Dependency
+    where
+        T: 'static,
+    {
+        let type_id = TypeId::of::<T>();
+        let type_name = type_name::<T>();
+        Dependency {
+            name: None,
+            type_name,
+            type_id,
+        }
+    }
+    pub fn with_name<T>(name: &'static str) -> Dependency
+    where
+        T: 'static,
+    {
+        let type_id = TypeId::of::<T>();
+        let type_name = type_name::<T>();
+        Dependency {
+            name: Some(name),
+            type_name,
+            type_id,
+        }
+    }
+}
+
+#[derive(Debug)]
 pub struct BeanDefinition {
     pub name: &'static str,
+    pub type_name: &'static str,
     pub type_id: TypeId,
     pub layout: Layout,
+    pub dependencies: Vec<Dependency>,
     pub maybe_drop: Option<DropMethod>,
 }
 
@@ -66,7 +144,23 @@ mod tests {
 
     struct A(usize);
 
-    impl Bean for A {}
+    impl Bean for A {
+        fn init<C: BeanContainer>(_container: C) -> Self {
+            A(0)
+        }
+    }
+
+    struct B(BeanId);
+
+    impl Bean for B {
+        fn dependencies() -> Vec<Dependency> {
+            vec![Dependency::of::<A>()]
+        }
+
+        fn init<C: BeanContainer>(container: C) -> Self {
+            B(container.id::<A>().expect("haha"))
+        }
+    }
 
     #[test]
     fn it_works() {
