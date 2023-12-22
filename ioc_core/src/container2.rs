@@ -57,6 +57,7 @@ impl BeanId {
         Self { id: value }
     }
 }
+
 pub struct BeanInfo {
     id: BeanId,
     dependencies: Box<[BeanId]>,
@@ -65,6 +66,8 @@ pub struct BeanInfo {
 
 pub struct ContainerInfo {
     bean_definitions: Box<[BeanDefinition]>,
+    bean_offsets: Box<[Range<usize>]>,
+    data_layout: Layout,
     type_bean_id_map: HashMap<TypeId, HashMap<&'static str, BeanId>>,
     name_bean_id_map: HashMap<&'static str, BeanId>,
     bean_infos: Box<[BeanInfo]>,
@@ -74,9 +77,16 @@ impl ContainerInfo {
     fn new(bean_definitions: Vec<BeanDefinition>) -> Result<Self, ContainerError> {
         let mut type_bean_id_map = HashMap::with_capacity(bean_definitions.len());
         let mut name_bean_id_map = HashMap::with_capacity(bean_definitions.len());
+        let mut bean_offsets = Vec::with_capacity(bean_definitions.len());
+        let mut data_layout = Layout::from_size_align(0, 8).unwrap();
 
         // 扫描所有的bean定义，找到重复定义的bean并报错，如果没有话，则构建type_id 和 name相关的map
         for (idx, definition) in bean_definitions.iter().enumerate() {
+
+            let (new_layout, offset) = data_layout.extend(definition.layout).expect("");
+            bean_offsets.push(offset..offset + definition.layout.size());
+            data_layout = new_layout;
+
             let id: BeanId = BeanId::new(idx);
             if let Some(_) = type_bean_id_map
                 .entry(definition.type_id)
@@ -98,11 +108,12 @@ impl ContainerInfo {
             };
         }
 
+        let bean_offsets = bean_offsets.into_boxed_slice();
         let mut bean_infos = Vec::with_capacity(bean_definitions.len());
         let mut scan_ids = Vec::with_capacity(bean_definitions.len());
 
         for (idx, definition) in bean_definitions.iter().enumerate() {
-            let dependencies = Vec::new();
+            let mut dependencies = Vec::new();
             for dependency in definition.dependencies.iter() {
                 if let Some(m) = type_bean_id_map.get(&dependency.type_id) {
                     if let Some(target_name) = dependency.name {
@@ -185,6 +196,8 @@ impl ContainerInfo {
         let bean_definitions = bean_definitions.into_boxed_slice();
 
         Ok(Self {
+            data_layout,
+            bean_offsets,
             bean_infos,
             bean_definitions,
             type_bean_id_map,
@@ -193,10 +206,17 @@ impl ContainerInfo {
     }
 }
 
-impl ContainerInfo {}
+impl ContainerInfo {
+    pub fn offset_between(&self, from: BeanId, to: BeanId) -> isize {
+        let from_offset = self.bean_offsets[from.id].start;
+        let to_offset = self.bean_offsets[to.id].start;
+        to_offset.wrapping_sub(from_offset) as isize
+    }
+}
 
 pub struct Ref<T> {
-    offset: isize,
+    parent_offset: isize,
+    inner_offset: isize,
     self_ptr: *const Ref<T>,
     marker: std::marker::PhantomData<T>,
 }
@@ -208,7 +228,10 @@ impl<T> Deref for Ref<T> {
         let ptr = self as *const Self;
         assert_eq!(ptr, self.self_ptr);
 
-        let target_addr = ptr.addr().wrapping_add_signed(self.offset);
+        let target_addr = ptr
+            .addr()
+            .wrapping_add_signed(self.inner_offset)
+            .wrapping_add_signed(self.parent_offset);
         let target_ptr = from_exposed_addr::<Self::Target>(target_addr);
 
         unsafe { target_ptr.as_ref().unwrap() }
@@ -319,32 +342,32 @@ mod tests {
         let offset_c_a = unsafe { a_ptr.byte_offset_from(c_ptr) } - offset_of!(C, ra) as isize;
         let offset_c_b = unsafe { b_ptr.byte_offset_from(c_ptr) } - offset_of!(C, rb) as isize;
 
-        let ra = Ref {
-            offset: offset_c_a,
-            marker: PhantomData::<A>,
-        };
-        let rb = Ref {
-            offset: offset_c_b,
-            marker: PhantomData::<B>,
-        };
+        // let ra = Ref {
+        //     offset: offset_c_a,
+        //     marker: PhantomData::<A>,
+        // };
+        // let rb = Ref {
+        //     offset: offset_c_b,
+        //     marker: PhantomData::<B>,
+        // };
 
-        unsafe {
-            c_ptr.write(C {
-                f1: 3,
-                f2: 4,
-                ra,
-                rb,
-            })
-        };
+        // unsafe {
+        //     c_ptr.write(C {
+        //         f1: 3,
+        //         f2: 4,
+        //         ra,
+        //         rb,
+        //     })
+        // };
 
-        let init = unsafe { uninit.assume_init() };
-        println!("{:p} {:p}", &init.0.a, &init.2.ra.a);
-        println!("{:p} {:p}", &init.1.b, &init.2.rb.b);
+        // let init = unsafe { uninit.assume_init() };
+        // println!("{:p} {:p}", &init.0.a, &init.2.ra.a);
+        // println!("{:p} {:p}", &init.1.b, &init.2.rb.b);
 
-        let init = Box::new(init);
-        println!("{:p} {:p}", &init.0.a, &init.2.ra.a);
-        println!("{:p} {:p}", &init.1.b, &init.2.rb.b);
+        // let init = Box::new(init);
+        // println!("{:p} {:p}", &init.0.a, &init.2.ra.a);
+        // println!("{:p} {:p}", &init.1.b, &init.2.rb.b);
 
-        let a = init.2.ra;
+        // let a = init.2.ra;
     }
 }

@@ -14,6 +14,7 @@ pub struct BeanContainer {
     layout: Layout,
 }
 
+
 fn mut_ptr<T>(ptr: &mut [u8], offset: usize) -> *mut T {
     let ptr = ptr.as_mut_ptr();
     let ptr = ptr.wrapping_add(offset);
