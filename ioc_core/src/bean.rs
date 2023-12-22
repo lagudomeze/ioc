@@ -7,8 +7,6 @@ use std::{
 
 use log::debug;
 
-use crate::error::IocError;
-
 pub trait Bean {
     fn dependencies() -> Vec<Dependency> {
         Vec::new()
@@ -67,26 +65,8 @@ pub trait Bean {
             maybe_drop,
         }
     }
-
-    fn init<C: BeanContainer>(_container: C) -> Self;
 }
 
-#[derive(Eq, Hash, PartialEq, Debug, Clone, Copy)]
-pub struct BeanId(usize);
-
-impl From<usize> for BeanId {
-    fn from(value: usize) -> Self {
-        Self(value)
-    }
-}
-
-pub trait BeanContainer {
-    fn id<T: Bean>(&self) -> Result<BeanId, IocError> {
-        Err(IocError::NotRegisteredBean {
-            type_name: type_name::<T>(),
-        })
-    }
-}
 
 pub type DropMethod = unsafe fn(*mut u8);
 
@@ -145,20 +125,13 @@ mod tests {
     struct A(usize);
 
     impl Bean for A {
-        fn init<C: BeanContainer>(_container: C) -> Self {
-            A(0)
-        }
     }
 
-    struct B(BeanId);
+    struct B;
 
     impl Bean for B {
         fn dependencies() -> Vec<Dependency> {
             vec![Dependency::of::<A>()]
-        }
-
-        fn init<C: BeanContainer>(container: C) -> Self {
-            B(container.id::<A>().expect("haha"))
         }
     }
 

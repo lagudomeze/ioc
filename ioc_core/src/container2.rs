@@ -2,33 +2,40 @@ use std::{
     alloc::Layout,
     any::TypeId,
     collections::{HashMap, HashSet},
+    hash::Hash,
     ops::{Deref, Range},
     ptr::from_exposed_addr,
 };
 
 use thiserror::Error;
 
-use crate::bean::{Bean, BeanDefinition, BeanId};
-
-struct ContainerBuilder {
-    bean_definitions: Box<[BeanDefinition]>,
-    bean_offsets: Box<[Range<usize>]>,
-    type_id_bean_id_map: HashMap<TypeId, BeanId>,
-    data_layout: Layout,
-    data: Box<[u8]>,
-    next_init_bean_id: usize,
-}
+use crate::bean::{Bean, BeanDefinition};
 
 #[derive(Error, Debug)]
 pub enum ContainerError {
     #[error("No bean of type: {type_name}")]
-    NotRegisteredBean { type_name: &'static str },
-    #[error("Duplcated bean type: {type_name} name: {name}")]
+    NoBean { type_name: &'static str },
+    #[error(
+        "Requred bean of type: {type_name} name: {target_name}, but candinates : {candinates:?}"
+    )]
+    NoNamedBean {
+        type_name: &'static str,
+        target_name: &'static str,
+        candinates: Box<[&'static str]>,
+    },
+    #[error("Too many candinated bean! Type [{type_name}] of name {candinates:?}")]
+    TooManyCandinatedBean {
+        type_name: &'static str,
+        candinates: Box<[&'static str]>,
+    },
+    #[error("Register duplicated bean! Type [{type_name}] name [{name}]")]
     DuplicateBeanDefiniton {
         type_name: &'static str,
         name: &'static str,
     },
-    #[error("Duplcated bean name: {name} of type [{type_name}, {duplicate_type_name}]")]
+    #[error(
+        "Register duplicated bean! Name [{name}] of type [{type_name}, {duplicate_type_name}]"
+    )]
     DuplicateBeanName {
         name: &'static str,
         type_name: &'static str,
@@ -40,84 +47,192 @@ pub enum ContainerError {
     Unknown,
 }
 
+#[derive(Eq, PartialEq, Hash, Debug, Clone, Copy)]
+pub struct BeanId {
+    id: usize,
+}
+
+impl BeanId {
+    fn new(value: usize) -> Self {
+        Self { id: value }
+    }
+}
+pub struct BeanInfo {
+    id: BeanId,
+    dependencies: Box<[BeanId]>,
+    level: usize,
+}
+
+pub struct ContainerInfo {
+    bean_definitions: Box<[BeanDefinition]>,
+    type_bean_id_map: HashMap<TypeId, HashMap<&'static str, BeanId>>,
+    name_bean_id_map: HashMap<&'static str, BeanId>,
+    bean_infos: Box<[BeanInfo]>,
+}
+
+impl ContainerInfo {
+    fn new(bean_definitions: Vec<BeanDefinition>) -> Result<Self, ContainerError> {
+        let mut type_bean_id_map = HashMap::with_capacity(bean_definitions.len());
+        let mut name_bean_id_map = HashMap::with_capacity(bean_definitions.len());
+
+        // 扫描所有的bean定义，找到重复定义的bean并报错，如果没有话，则构建type_id 和 name相关的map
+        for (idx, definition) in bean_definitions.iter().enumerate() {
+            let id: BeanId = BeanId::new(idx);
+            if let Some(_) = type_bean_id_map
+                .entry(definition.type_id)
+                .or_insert(HashMap::with_capacity(16))
+                .insert(definition.name, id)
+            {
+                return Err(ContainerError::DuplicateBeanDefiniton {
+                    name: definition.name,
+                    type_name: definition.type_name,
+                });
+            }
+            if let Some(duplicate_idx) = name_bean_id_map.insert(definition.name, id) {
+                let duplicate_definition = &bean_definitions[duplicate_idx.id];
+                return Err(ContainerError::DuplicateBeanName {
+                    name: definition.name,
+                    type_name: definition.type_name,
+                    duplicate_type_name: duplicate_definition.name,
+                });
+            };
+        }
+
+        let mut bean_infos = Vec::with_capacity(bean_definitions.len());
+        let mut scan_ids = Vec::with_capacity(bean_definitions.len());
+
+        for (idx, definition) in bean_definitions.iter().enumerate() {
+            let dependencies = Vec::new();
+            for dependency in definition.dependencies.iter() {
+                if let Some(m) = type_bean_id_map.get(&dependency.type_id) {
+                    if let Some(target_name) = dependency.name {
+                        if let Some(id) = m.get(target_name) {
+                            dependencies.push(*id);
+                        } else {
+                            let mut candinates: Vec<&'static str> = vec![];
+                            for name in m.keys() {
+                                candinates.push(*name);
+                            }
+                            return Err(ContainerError::NoNamedBean {
+                                target_name,
+                                type_name: definition.type_name,
+                                candinates: candinates.into_boxed_slice(),
+                            });
+                        }
+                    } else {
+                        if m.len() == 1 {
+                            let id = m.values().last().unwrap();
+                            dependencies.push(*id);
+                        } else {
+                            let mut candinates: Vec<&'static str> = vec![];
+                            for name in m.keys() {
+                                candinates.push(*name);
+                            }
+                            return Err(ContainerError::TooManyCandinatedBean {
+                                type_name: definition.type_name,
+                                candinates: candinates.into_boxed_slice(),
+                            });
+                        }
+                    }
+                } else {
+                    return Err(ContainerError::NoBean {
+                        type_name: definition.type_name,
+                    });
+                }
+            }
+            let dependencies = dependencies.into_boxed_slice();
+            scan_ids.push(idx);
+
+            bean_infos.push(BeanInfo {
+                id: BeanId::new(idx),
+                dependencies,
+                level: usize::MAX,
+            });
+        }
+
+        let mut last = scan_ids.len() - 1;
+        let mut ready_ids = HashSet::with_capacity(scan_ids.len());
+        let mut level = 0;
+        while last >= 0 {
+            let mut some_ready = false;
+            for i in 0..=last {
+                let info = &mut bean_infos[scan_ids[i]];
+                let mut ready = true;
+                for id in info.dependencies.iter() {
+                    if !ready_ids.contains(id) {
+                        ready = false;
+                        break;
+                    }
+                }
+                if ready {
+                    some_ready = true;
+                    info.level = level;
+                    ready_ids.insert(info.id);
+                    scan_ids.swap(i, last);
+                    last -= 1;
+                }
+            }
+            if !some_ready {
+                //todo
+                return Err(ContainerError::LoopDependency);
+            }
+            level += 1;
+        }
+
+        bean_infos.sort_by(|l, r| l.level.cmp(&r.level));
+
+        let bean_infos = bean_infos.into_boxed_slice();
+        let bean_definitions = bean_definitions.into_boxed_slice();
+
+        Ok(Self {
+            bean_infos,
+            bean_definitions,
+            type_bean_id_map,
+            name_bean_id_map,
+        })
+    }
+}
+
+impl ContainerInfo {}
+
+pub struct Ref<T> {
+    offset: isize,
+    self_ptr: *const Ref<T>,
+    marker: std::marker::PhantomData<T>,
+}
+
+impl<T> Deref for Ref<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        let ptr = self as *const Self;
+        assert_eq!(ptr, self.self_ptr);
+
+        let target_addr = ptr.addr().wrapping_add_signed(self.offset);
+        let target_ptr = from_exposed_addr::<Self::Target>(target_addr);
+
+        unsafe { target_ptr.as_ref().unwrap() }
+    }
+}
+
+struct ContainerBuilder {
+    bean_definitions: Box<[BeanDefinition]>,
+    bean_offsets: Box<[Range<usize>]>,
+    type_id_bean_id_map: HashMap<TypeId, BeanId>,
+    data_layout: Layout,
+    data: Box<[u8]>,
+    next_init_bean_id: usize,
+}
+
 pub trait BeanFactory {
     type T: Bean;
 
     fn build(&mut self) -> Self::T;
 }
 
-fn sort_by_dep(
-    bean_definitions: Vec<BeanDefinition>,
-) -> Result<Vec<BeanDefinition>, ContainerError> {
-    let mut result = vec![];
-
-    let mut type_id_idx_map = HashMap::with_capacity(bean_definitions.len());
-
-    let mut name_idx_map = HashMap::with_capacity(bean_definitions.len());
-
-    // 扫描所有的bean定义，找到重复定义的bean并报错，如果没有话，则构建type_id 和 name相关的map
-    for (idx, definition) in bean_definitions.iter().enumerate() {
-        if let Some(_) = type_id_idx_map
-            .entry(&definition.type_id)
-            .or_insert(HashMap::with_capacity(16))
-            .insert(definition.name, idx)
-        {
-            return Err(ContainerError::DuplicateBeanDefiniton {
-                name: definition.name,
-                type_name: definition.type_name,
-            });
-        }
-        if let Some(duplicate_idx) = name_idx_map.insert(definition.name, idx) {
-            let duplicate_definition = &bean_definitions[duplicate_idx];
-            return Err(ContainerError::DuplicateBeanName {
-                name: definition.name,
-                type_name: definition.type_name,
-                duplicate_type_name: duplicate_definition.name,
-            });
-        };
-    }
-
-    let mut queue = vec![];
-
-    let mut recompute_queue = vec![];
-
-    // 扫描所有并计算入度
-    for (idx, definition) in bean_definitions.iter().enumerate() {
-        // 将入度为0的元素加入结果中
-        if definition.dependencies.is_empty() {
-            queue.swap_remove(idx);
-        } else {
-            // 其他归入重计算的数组
-            recompute_queue.push(idx);
-        }
-    }
-
-    let mut indegree: Vec<HashSet<usize>> = Vec::with_capacity(bean_definitions.len());
-
-    // 拓扑排序
-    while let Some(idx) = queue.pop() {
-        let definition = bean_definitions[idx];
-
-        recompute_queue.sw
-        let type_id = definition.type_id;
-        // for dependency_type_id in definition.dependencies.iter() {
-        //     if  {
-
-        //     }
-        //     indegree[dependency as usize] -= 1;
-        //     if indegree[dependency as usize] == 0 {
-        //         queue.push(dependency as usize);
-        //     }
-        // }
-        result.push(definition);
-    }
-
-    Ok(result)
-}
-
 impl ContainerBuilder {
     fn new(bean_definitions: Vec<BeanDefinition>) -> Self {
-        let bean_definitions = sort_by_dep(bean_definitions).unwrap().into_boxed_slice();
+        let bean_definitions = bean_definitions.into_boxed_slice();
 
         let mut data_layout = Layout::from_size_align(0, 8).unwrap();
         let mut type_id_bean_id_map = HashMap::with_capacity(16);
@@ -135,7 +250,7 @@ impl ContainerBuilder {
 
             let type_id = definition.type_id;
             let name = definition.name;
-            let id = next_id.into();
+            let id = BeanId::new(next_id);
 
             type_id_bean_id_map.insert(type_id, id);
             name_bean_ids_map
@@ -160,26 +275,6 @@ impl ContainerBuilder {
     }
 
     fn init(&mut self) {}
-}
-
-struct Ref<T> {
-    offset: isize,
-    marker: std::marker::PhantomData<T>,
-}
-
-impl<T> Deref for Ref<T> {
-    type Target = T;
-
-    fn deref(&self) -> &Self::Target {
-        let ptr = self as *const Self;
-        let target_addr = ptr.addr().wrapping_add_signed(self.offset);
-
-        unsafe {
-            from_exposed_addr::<Self::Target>(target_addr)
-                .as_ref()
-                .unwrap()
-        }
-    }
 }
 
 #[cfg(test)]
