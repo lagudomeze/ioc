@@ -1,14 +1,16 @@
 use std::{
     alloc::Layout,
-    any::{type_name, TypeId},
+    any::{type_name, type_name_of_val, TypeId},
     collections::{HashMap, HashSet},
     hash::Hash,
     marker::PhantomData,
     mem::MaybeUninit,
     ops::{Deref, Range},
+    path::Display,
     ptr::from_exposed_addr,
 };
 
+use log::info;
 use thiserror::Error;
 
 use crate::bean::{Bean, BeanDefinition};
@@ -167,13 +169,14 @@ impl ContainerInfo {
             });
         }
 
-        let mut last = scan_ids.len() - 1;
         let mut ready_ids = HashSet::with_capacity(scan_ids.len());
+        let mut tail = scan_ids.len();
         let mut level = 0;
-        while last >= 0 {
+        while tail > 0 {
             let mut some_ready = false;
-            for i in 0..=last {
-                let info = &mut bean_infos[scan_ids[i]];
+            let mut head = 0;
+            while head < tail {
+                let info = &mut bean_infos[scan_ids[head]];
                 let mut ready = true;
                 for id in info.dependencies.iter() {
                     if !ready_ids.contains(id) {
@@ -185,8 +188,10 @@ impl ContainerInfo {
                     some_ready = true;
                     info.level = level;
                     ready_ids.insert(info.id);
-                    scan_ids.swap(i, last);
-                    last -= 1;
+                    tail -= 1;
+                    scan_ids.swap(head, tail);
+                } else {
+                    head += 1;
                 }
             }
             if !some_ready {
@@ -266,11 +271,18 @@ impl ContainerInfo {
     }
 }
 
+#[derive(Debug)]
 pub struct Ref<T> {
     parent_offset: isize,
     inner_offset: isize,
     self_ptr: *const Ref<T>,
     marker: std::marker::PhantomData<T>,
+}
+
+impl<T> std::fmt::Display for Ref<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}, {:p}", type_name_of_val(&self), self.self_ptr)
+    }
 }
 
 impl<T> Ref<T>
@@ -320,9 +332,26 @@ struct BeanContainer {
     data: Box<[u8]>,
 }
 
+impl Drop for BeanContainer {
+    fn drop(&mut self) {
+        for info in self.info.bean_infos.iter().rev() {
+            let id = info.id;
+            let definition = self.info.bean_definitions.get(id.id).expect("error");
+            if let Some(drop_method) = definition.maybe_drop {
+                println!("drop bean:{} level:{}", definition.type_name, info.level);
+                let offset = self.info.bean_offsets[id.id].clone();
+                let ptr = self.data[offset].as_mut_ptr().cast::<u8>();
+                unsafe {
+                    drop_method(ptr);
+                }
+            }
+        }
+    }
+}
+
 impl BeanContainer {
     fn new(info: ContainerInfo) -> Self {
-        let data = Vec::with_capacity(info.data_layout.size()).into_boxed_slice();
+        let data = vec![0; info.data_layout.size()].into_boxed_slice();
         Self { info, data }
     }
 
@@ -349,14 +378,30 @@ mod tests {
     use crate::bean::Dependency;
 
     use super::*;
+    #[derive(Debug)]
     struct A {
         a: usize,
     }
 
     impl Bean for A {}
 
+    impl Drop for A {
+        fn drop(&mut self) {
+            let a = self.a;
+            println!("haha drop A!{a}")
+        }
+    }
+
+    #[derive(Debug)]
     struct B {
         b: Vec<u8>,
+    }
+
+    impl Drop for B {
+        fn drop(&mut self) {
+            let a = self.b.as_slice();
+            println!("haha drop b!{a:?}")
+        }
     }
 
     impl Bean for B {
@@ -365,6 +410,7 @@ mod tests {
         }
     }
 
+    #[derive(Debug)]
     struct C {
         f1: u8,
         f2: u16,
@@ -378,13 +424,19 @@ mod tests {
         }
     }
 
+    impl Drop for C {
+        fn drop(&mut self) {
+            println!("haha drop C!\n{self:?}")
+        }
+    }
+
     impl C {
         fn tttt(&mut self) {}
     }
 
     #[test]
     fn it_works() {
-        let bean_definitions = vec![A::definition(), B::definition(), C::definition()];
+        let bean_definitions = vec![C::definition(), A::definition(), B::definition()];
 
         let info = ContainerInfo::new(bean_definitions).expect("haha");
 
