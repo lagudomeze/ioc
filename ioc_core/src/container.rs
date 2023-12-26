@@ -337,6 +337,7 @@ impl BeanContainer {
         Ok(maybe_uninnit)
     }
 }
+
 #[cfg(test)]
 mod tests {
     use std::{
