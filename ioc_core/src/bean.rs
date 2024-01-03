@@ -67,7 +67,6 @@ pub trait Bean {
     }
 }
 
-
 pub type DropMethod = unsafe fn(*mut u8);
 
 unsafe fn drop<T>(ptr: *mut u8) {

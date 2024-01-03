@@ -7,6 +7,9 @@ edition = "2021"
 
 [dependencies]
 ioc_core = { workspace = true }
+linkme = { workspace = true }
+log = { workspace = true }
+thiserror = { workspace = true }
 
 
 [workspace]
@@ -19,3 +22,11 @@ members = [
 linkme = "0.3.18"
 ioc_core = { path = "./ioc_core" }
 ioc_derive = { path = "./ioc_derive" }
+crossbeam-epoch = "0.9.16"
+log = "0.4.20"
+thiserror = "1.0.51"
+proc-macro2 = "1.0.70"
+quote = "1.0.33"
+serde = { version = "1.0.193" }
+syn = "2.0.40"
+toml = "0.8.8"

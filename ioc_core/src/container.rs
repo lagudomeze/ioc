@@ -10,7 +10,6 @@ use std::{
     ptr::from_exposed_addr,
 };
 
-use log::info;
 use thiserror::Error;
 
 use crate::bean::{Bean, BeanDefinition};
@@ -62,17 +61,19 @@ pub struct BeanId {
 }
 
 impl BeanId {
-    fn new(value: usize) -> Self {
+    pub fn new(value: usize) -> Self {
         Self { id: value }
     }
 }
 
+#[derive(Debug)]
 pub struct BeanInfo {
     id: BeanId,
     dependencies: Box<[BeanId]>,
     level: usize,
 }
 
+#[derive(Debug)]
 pub struct ContainerInfo {
     bean_definitions: Box<[BeanDefinition]>,
     bean_offsets: Box<[Range<usize>]>,
@@ -218,7 +219,7 @@ impl ContainerInfo {
 }
 
 impl ContainerInfo {
-    pub(crate) fn offset_between(&self, from: BeanId, to: BeanId) -> isize {
+    pub fn offset_between(&self, from: BeanId, to: BeanId) -> isize {
         let from_offset = self.bean_offsets[from.id].start;
         let to_offset = self.bean_offsets[to.id].start;
         to_offset.wrapping_sub(from_offset) as isize
@@ -327,7 +328,7 @@ impl<T> Deref for Ref<T> {
     }
 }
 
-struct BeanContainer {
+pub struct BeanContainer {
     info: ContainerInfo,
     data: Box<[u8]>,
 }
@@ -350,7 +351,7 @@ impl Drop for BeanContainer {
 }
 
 impl BeanContainer {
-    fn new(info: ContainerInfo) -> Self {
+    pub fn new(info: ContainerInfo) -> Self {
         let data = vec![0; info.data_layout.size()].into_boxed_slice();
         Self { info, data }
     }
@@ -426,12 +427,9 @@ mod tests {
 
     impl Drop for C {
         fn drop(&mut self) {
-            println!("haha drop C!\n{self:?}")
+            let a = &*self.ra;
+            println!("haha drop C!\n{self:?} {a:?}");
         }
-    }
-
-    impl C {
-        fn tttt(&mut self) {}
     }
 
     #[test]

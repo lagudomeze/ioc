@@ -3,9 +3,9 @@ name = "ioc_core"
 version = "0.1.0"
 edition = "2021"
 
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-crossbeam-epoch = "0.9.16"
-log = "0.4.20"
-thiserror = "1.0.51"
+log = { workspace = true }
+thiserror = { workspace = true }
