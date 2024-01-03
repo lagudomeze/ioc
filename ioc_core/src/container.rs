@@ -6,7 +6,6 @@ use std::{
     marker::PhantomData,
     mem::MaybeUninit,
     ops::{Deref, Range},
-    path::Display,
     ptr::from_exposed_addr,
 };
 
@@ -371,9 +370,8 @@ impl BeanContainer {
 #[cfg(test)]
 mod tests {
     use std::{
-        marker::PhantomData,
-        mem::{offset_of, MaybeUninit},
-        ptr::{self, addr_of_mut},
+        mem::offset_of,
+        ptr::addr_of_mut,
     };
 
     use crate::bean::Dependency;
