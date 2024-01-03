@@ -33,9 +33,7 @@ pub fn run(_: TokenStream) -> TokenStream {
 
         #preload_mods
 
-        ioc_core::collect_bean_definition();
-
-        ioc_core::run_app();
+        ::ioc::run_app();
     };
 
     TokenStream::from(expanded)
