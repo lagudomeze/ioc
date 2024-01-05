@@ -13,6 +13,7 @@ serde = { workspace = true, features = [
 ] }
 syn = { workspace = true }
 toml = { workspace = true }
+thiserror = { workspace = true }
 
 [lib]
 proc-macro = true

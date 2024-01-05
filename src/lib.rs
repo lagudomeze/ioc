@@ -53,12 +53,15 @@ pub fn run_app() {
     });
 }
 
+pub use ioc_derive::{Bean, run};
+
 #[cfg(test)]
 mod tests {
     use ioc_core::BeanId;
 
     use super::*;
 
+    #[derive(Bean)]
     struct A;
 
     impl Bean for A {}

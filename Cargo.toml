@@ -7,6 +7,7 @@ edition = "2021"
 
 [dependencies]
 ioc_core = { workspace = true }
+ioc_derive = { workspace = true }
 linkme = { workspace = true }
 log = { workspace = true }
 thiserror = { workspace = true }

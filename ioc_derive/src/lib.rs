@@ -1,7 +1,11 @@
+use bean::FieldAttribute;
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
+use syn::{parse_macro_input, DeriveInput};
 
 mod scan;
+
+mod bean;
 
 fn preload_mods() -> proc_macro2::TokenStream {
     use scan::CargoToml;
@@ -34,6 +38,45 @@ pub fn run(_: TokenStream) -> TokenStream {
         #preload_mods
 
         ::ioc::run_app();
+    };
+
+    TokenStream::from(expanded)
+}
+
+#[proc_macro_derive(Bean, attributes(r#ref, value))]
+pub fn bean_definition(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    let name = &input.ident;
+
+    let fields = match input.data {
+        syn::Data::Struct(ref data_struct) => &data_struct.fields,
+        _ => panic!("Bean derive macro only works with structs"),
+    };
+
+    let field_initializers = fields.iter().map(|field| {
+        let field_name = &field.ident;
+        let attr = FieldAttribute::from_attributes(&field.attrs).expect("");
+        match attr {
+            FieldAttribute::Ref(name) => quote! {
+                #field_name: context.get_ref::<_>(#name)
+            },
+            FieldAttribute::Config(key) => quote! {
+                #field_name: context.get_value::<_>(#key).unwrap()
+            },
+            FieldAttribute::Default => quote! {
+                #field_name: Default::default()
+            },
+        }
+    });
+
+    let expanded = quote! {
+        impl ::ioc_core::Factory for #name {
+            fn create(context: &::ioc::Context) -> Self {
+                #name {
+                    #(#field_initializers),*
+                }
+            }
+        }
     };
 
     TokenStream::from(expanded)
