@@ -10,7 +10,7 @@ use std::{
 
 use spec::{ContainerSpec, ContainerSpecBuilder};
 
-use crate::{bean::BeanQuery, Bean};
+use crate::{bean::{BeanQuery, BeanTypeHolder}, Bean};
 
 use thiserror::Error;
 
@@ -73,6 +73,10 @@ impl BeanId {
 pub struct Ref<T> {
     ptr: NonNull<T>,
     marker: PhantomData<T>,
+}
+
+impl<B> BeanTypeHolder for Ref<B> where B: Bean + 'static{
+    type T = B;
 }
 
 pub trait BeanRetriever {

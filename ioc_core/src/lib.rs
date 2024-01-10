@@ -6,5 +6,5 @@ pub mod error;
 pub(crate) mod bean;
 pub(crate) mod container;
 
-pub use bean::{Bean, BeanDefinition};
+pub use bean::{Bean, BeanDefinition, BeanQuery};
 pub use container::{BeanId, BeanContainer, BeanContainerBuilder, BeanFactory, BeanRetriever, Ref};

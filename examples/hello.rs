@@ -8,7 +8,7 @@ struct A;
 
 #[derive(Bean)]
 struct B {
-    #[bean_ref()]
+    #[bean_ref("bbb")]
     _a: Ref<A>,
 }
 fn main() {

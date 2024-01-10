@@ -1,3 +1,5 @@
+use std::any::Any;
+
 use bean::{FieldAttribute, TypeAttribute};
 use proc_macro::TokenStream;
 use proc_macro2::Span;
@@ -55,24 +57,39 @@ pub fn bean_definition(input: TokenStream) -> TokenStream {
         _ => panic!("Bean derive macro only works with structs"),
     };
 
-    let field_initializers = fields.iter().map(|field| {
+    let mut field_initializers = vec![];
+    let mut dependenices = vec![];
+    for field in fields.iter() {
         let field_name = &field.ident;
         let attr = FieldAttribute::from_attributes(&field.attrs).expect("");
-        match attr {
-            FieldAttribute::Ref(Some(name)) => quote! {
-                #field_name: ctx.make_ref::<_>(Some(#name)).unwrap()
-            },
-            FieldAttribute::Ref(None) => quote! {
-                #field_name: ctx.make_ref::<_>(None).unwrap()
-            },
+        let field_initializer = match attr {
+            FieldAttribute::Ref(Some(name)) => {
+                let ty: &syn::Type = &field.ty;
+                dependenices.push(quote! {
+                    ::ioc_core::BeanQuery::named_from_holder::<#ty>(#name)
+                });
+                quote! {
+                    #field_name: ctx.make_ref::<_>(Some(#name)).unwrap()
+                }
+            }
+            FieldAttribute::Ref(None) => {
+                let ty: &syn::Type = &field.ty;
+                dependenices.push(quote! {
+                    ::ioc_core::BeanQuery::from_holder::<#ty>()
+                });
+                quote! {
+                    #field_name: ctx.make_ref::<_>(None).unwrap()
+                }
+            }
             FieldAttribute::Config(key) => quote! {
                 #field_name: ctx.make_value::<_>(#key).unwrap()
             },
             FieldAttribute::Default => quote! {
                 #field_name: Default::default()
             },
-        }
-    });
+        };
+        field_initializers.push(field_initializer);
+    }
 
     let type_attr = TypeAttribute::from_attributes(&input.attrs).expect("");
 
@@ -83,11 +100,23 @@ pub fn bean_definition(input: TokenStream) -> TokenStream {
                     fn name() -> &'static str {
                         #bean_name
                     }
+
+                    fn dependencies() -> Vec<::ioc_core::BeanQuery> {
+                        vec![
+                            #(#dependenices),*
+                        ]
+                    }
                 }
             }
         } else {
             quote! {
                 impl ::ioc_core::Bean for #name {
+                    
+                    fn dependencies() -> Vec<::ioc_core::BeanQuery> {
+                        vec![
+                            #(#dependenices),*
+                        ]
+                    }
                 }
             }
         }

@@ -3,6 +3,8 @@ use std::{
     any::{type_name, TypeId},
 };
 
+use crate::container::Ref;
+
 use log::debug;
 #[derive(Debug)]
 pub enum BeanQuery {
@@ -17,6 +19,10 @@ pub enum BeanQuery {
     },
 }
 
+pub(crate)trait BeanTypeHolder {
+    type T: Bean + 'static;
+}
+
 impl BeanQuery {
     pub fn maybe_none_name<T: 'static>(maybe_name: Option<&'static str>) -> Self {
         if let Some(name) = maybe_name {
@@ -25,18 +31,28 @@ impl BeanQuery {
             Self::of::<T>()
         }
     }
+
     pub fn of<T: 'static>() -> Self {
         BeanQuery::OnlyType {
             type_id: TypeId::of::<T>(),
             type_name: type_name::<T>(),
         }
     }
+
     pub fn named<T: 'static>(name: &'static str) -> Self {
         BeanQuery::NameAndType {
             name,
             type_id: TypeId::of::<T>(),
             type_name: type_name::<T>(),
         }
+    }
+
+    pub fn named_from_holder<R: BeanTypeHolder>(name: &'static str) -> Self {
+        Self::named::<R::T>(name)
+    }
+
+    pub fn from_holder<R: BeanTypeHolder>() -> Self {
+        Self::of::<R::T>()
     }
 }
 
