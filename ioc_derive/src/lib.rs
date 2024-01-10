@@ -1,4 +1,4 @@
-use bean::FieldAttribute;
+use bean::{FieldAttribute, TypeAttribute};
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
 use syn::{parse_macro_input, DeriveInput};
@@ -43,9 +43,10 @@ pub fn run(_: TokenStream) -> TokenStream {
     TokenStream::from(expanded)
 }
 
-#[proc_macro_derive(Bean, attributes(r#ref, value))]
+#[proc_macro_derive(Bean, attributes(bean_ref, value, name))]
 pub fn bean_definition(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
+
     let name = &input.ident;
 
     let fields = match input.data {
@@ -57,11 +58,14 @@ pub fn bean_definition(input: TokenStream) -> TokenStream {
         let field_name = &field.ident;
         let attr = FieldAttribute::from_attributes(&field.attrs).expect("");
         match attr {
-            FieldAttribute::Ref(name) => quote! {
-                #field_name: context.get_ref::<_>(#name)
+            FieldAttribute::Ref(Some(name)) => quote! {
+                #field_name: ctx.make_ref::<_>(Some(#name)).unwrap()
+            },
+            FieldAttribute::Ref(None) => quote! {
+                #field_name: ctx.make_ref::<_>(None).unwrap()
             },
             FieldAttribute::Config(key) => quote! {
-                #field_name: context.get_value::<_>(#key).unwrap()
+                #field_name: ctx.make_value::<_>(#key).unwrap()
             },
             FieldAttribute::Default => quote! {
                 #field_name: Default::default()
@@ -69,12 +73,38 @@ pub fn bean_definition(input: TokenStream) -> TokenStream {
         }
     });
 
-    let expanded = quote! {
-        impl ::ioc_core::Factory for #name {
-            fn create(context: &::ioc::Context) -> Self {
-                #name {
-                    #(#field_initializers),*
+    let type_attr = TypeAttribute::from_attributes(&input.attrs).expect("");
+
+    let bean_impl = {
+        if let Some(bean_name) = type_attr.name {
+            quote! {
+                impl ::ioc_core::Bean for #name {
+                    fn name() -> &'static str {
+                        #bean_name
+                    }
                 }
+            }
+        } else {
+            quote! {
+                impl ::ioc_core::Bean for #name {
+                }
+            }
+        }
+    };
+
+    let expanded = quote! {
+        #bean_impl
+
+        impl ::ioc_core::BeanFactory for #name  {
+            type T = Self;
+
+            unsafe fn init_in_place<C>(ptr: std::ptr::NonNull<Self::T>, ctx: &C)
+            where
+                C: ::ioc_core::BeanRetriever,
+            {
+                ptr.as_ptr().write(#name {
+                    #(#field_initializers),*
+                })
             }
         }
     };

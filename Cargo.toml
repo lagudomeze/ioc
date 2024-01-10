@@ -14,10 +14,7 @@ thiserror = { workspace = true }
 
 
 [workspace]
-members = [
-    "ioc_core",
-    "ioc_derive",
-]
+members = ["ioc_core", "ioc_derive"]
 
 [workspace.dependencies]
 linkme = "0.3.18"
@@ -29,5 +26,12 @@ thiserror = "1.0.51"
 proc-macro2 = "1.0.70"
 quote = "1.0.33"
 serde = { version = "1.0.193" }
-syn = "2.0.40"
+syn = { version = "2.0.40", features = [
+    "extra-traits",
+    "derive",
+    "parsing",
+    "printing",
+    "clone-impls",
+    "proc-macro",
+] }
 toml = "0.8.8"

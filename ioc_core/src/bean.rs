@@ -1,15 +1,55 @@
 use std::{
     alloc::Layout,
     any::{type_name, TypeId},
-    mem::needs_drop,
-    ptr::drop_in_place,
 };
 
 use log::debug;
+#[derive(Debug)]
+pub enum BeanQuery {
+    OnlyType {
+        type_id: TypeId,
+        type_name: &'static str,
+    },
+    NameAndType {
+        name: &'static str,
+        type_id: TypeId,
+        type_name: &'static str,
+    },
+}
+
+impl BeanQuery {
+    pub fn maybe_none_name<T: 'static>(maybe_name: Option<&'static str>) -> Self {
+        if let Some(name) = maybe_name {
+            Self::named::<T>(name)
+        } else {
+            Self::of::<T>()
+        }
+    }
+    pub fn of<T: 'static>() -> Self {
+        BeanQuery::OnlyType {
+            type_id: TypeId::of::<T>(),
+            type_name: type_name::<T>(),
+        }
+    }
+    pub fn named<T: 'static>(name: &'static str) -> Self {
+        BeanQuery::NameAndType {
+            name,
+            type_id: TypeId::of::<T>(),
+            type_name: type_name::<T>(),
+        }
+    }
+}
 
 pub trait Bean {
-    fn dependencies() -> Vec<Dependency> {
+    fn dependencies() -> Vec<BeanQuery> {
         Vec::new()
+    }
+
+    fn self_qurey() -> BeanQuery
+    where
+        Self: Sized + 'static,
+    {
+        BeanQuery::named::<Self>(Self::name())
     }
 
     fn type_id() -> TypeId
@@ -23,22 +63,15 @@ pub trait Bean {
         type_name::<Self>()
     }
 
+    fn type_name() -> &'static str {
+        type_name::<Self>()
+    }
+
     fn layout() -> Layout
     where
         Self: Sized,
     {
         Layout::new::<Self>()
-    }
-
-    fn maybe_drop() -> Option<DropMethod>
-    where
-        Self: Sized,
-    {
-        if needs_drop::<Self>() {
-            Some(drop::<Self>)
-        } else {
-            None
-        }
     }
 
     fn definition() -> BeanDefinition
@@ -49,7 +82,6 @@ pub trait Bean {
         let name = Self::name();
         let type_name = type_name::<Self>();
         let layout = Self::layout();
-        let maybe_drop = Self::maybe_drop();
 
         debug!(
             "type name:{name} id:{type_id:?} layout size:{}",
@@ -62,59 +94,16 @@ pub trait Bean {
             type_id,
             layout,
             dependencies: Self::dependencies(),
-            maybe_drop,
         }
     }
 }
-
-pub type DropMethod = unsafe fn(*mut u8);
-
-unsafe fn drop<T>(ptr: *mut u8) {
-    drop_in_place(ptr.cast::<T>());
-}
-
-#[derive(Debug)]
-pub struct Dependency {
-    pub name: Option<&'static str>,
-    pub type_id: TypeId,
-    pub type_name: &'static str,
-}
-
-impl Dependency {
-    pub fn of<T>() -> Dependency
-    where
-        T: 'static,
-    {
-        let type_id = TypeId::of::<T>();
-        let type_name = type_name::<T>();
-        Dependency {
-            name: None,
-            type_name,
-            type_id,
-        }
-    }
-    pub fn with_name<T>(name: &'static str) -> Dependency
-    where
-        T: 'static,
-    {
-        let type_id = TypeId::of::<T>();
-        let type_name = type_name::<T>();
-        Dependency {
-            name: Some(name),
-            type_name,
-            type_id,
-        }
-    }
-}
-
 #[derive(Debug)]
 pub struct BeanDefinition {
     pub name: &'static str,
     pub type_name: &'static str,
     pub type_id: TypeId,
     pub layout: Layout,
-    pub dependencies: Vec<Dependency>,
-    pub maybe_drop: Option<DropMethod>,
+    pub dependencies: Vec<BeanQuery>,
 }
 
 #[cfg(test)]
@@ -123,14 +112,13 @@ mod tests {
 
     struct A(usize);
 
-    impl Bean for A {
-    }
+    impl Bean for A {}
 
     struct B;
 
     impl Bean for B {
-        fn dependencies() -> Vec<Dependency> {
-            vec![Dependency::of::<A>()]
+        fn dependencies() -> Vec<BeanQuery> {
+            vec![BeanQuery::of::<A>()]
         }
     }
 
@@ -139,6 +127,6 @@ mod tests {
         let definition = A::definition();
         assert_eq!(definition.name, "ioc_core::bean::tests::A");
         assert_eq!(definition.type_id, TypeId::of::<A>());
-        assert_eq!(definition.layout.size(), (usize::BITS / 8) as usize);
+        assert_eq!(definition.layout, Layout::new::<usize>());
     }
 }

@@ -1,4 +1,4 @@
-use syn::{parse::Parse, Attribute, Lit};
+use syn::{parse::Parse, token::Eq, Attribute, LitStr};
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -18,8 +18,8 @@ pub(crate) enum FieldAttribute {
 impl FieldAttribute {
     pub fn from_attributes(attrs: &[Attribute]) -> Result<Self> {
         for attr in attrs {
-            if attr.path().is_ident("ref") {
-                let attr = attr.parse_args::<RefAttr>()?;
+            if attr.path().is_ident("bean_ref") {
+                let attr = attr.parse_args::<MaybeString>()?;
                 return Ok(FieldAttribute::Ref(attr.0));
             } else if attr.path().is_ident("config") {
                 let attr = attr.parse_args::<ConfigAttr>()?;
@@ -30,37 +30,40 @@ impl FieldAttribute {
     }
 }
 
-struct RefAttr(Option<String>);
+struct MaybeString(Option<String>);
 struct ConfigAttr(String);
 
-impl Parse for RefAttr {
+impl Parse for MaybeString {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-        let content;
-        syn::parenthesized!(content in input);
-        if content.is_empty() {
-            Ok(RefAttr(None))
+        if input.is_empty() {
+            Ok(MaybeString(None))
         } else {
-            content.parse::<Lit>().and_then(|lit| {
-                if let Lit::Str(lit_str) = lit {
-                    Ok(RefAttr(Some(lit_str.value())))
-                } else {
-                    Err(syn::Error::new(lit.span(), "expected string literal"))
-                }
-            })
+            let name = input.parse::<LitStr>()?.value();
+            Ok(MaybeString(Some(name)))
         }
     }
 }
 
 impl Parse for ConfigAttr {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-        let content;
-        syn::parenthesized!(content in input);
-        content.parse::<Lit>().and_then(|lit| {
-            if let Lit::Str(lit_str) = lit {
-                Ok(ConfigAttr(lit_str.value()))
-            } else {
-                Err(syn::Error::new(lit.span(), "expected string literal"))
+        input.parse::<Eq>()?;
+        let path = input.parse::<LitStr>()?.value();
+        Ok(ConfigAttr(path))
+    }
+}
+
+pub(crate) struct TypeAttribute {
+    pub name: Option<String>,
+}
+
+impl TypeAttribute {
+    pub fn from_attributes(attrs: &[Attribute]) -> Result<Self> {
+        for attr in attrs {
+            if attr.path().is_ident("name") {
+                let attr = attr.parse_args::<MaybeString>()?;
+                return Ok(TypeAttribute { name: attr.0 });
             }
-        })
+        }
+        return Ok(TypeAttribute { name: None });
     }
 }
