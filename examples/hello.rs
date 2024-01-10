@@ -11,7 +11,7 @@ struct A;
 #[derive(Bean)]
 struct B{
     #[bean_ref()]
-    a: Ref<A>
+    _a: Ref<A>
 }
 
 #[distributed_slice(BEAN_COLLECTOR)]
