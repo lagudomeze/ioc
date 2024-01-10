@@ -3,9 +3,8 @@ use std::{
     any::{type_name, TypeId},
 };
 
-use crate::container::Ref;
-
 use log::debug;
+
 #[derive(Debug)]
 pub enum BeanQuery {
     OnlyType {
@@ -19,7 +18,7 @@ pub enum BeanQuery {
     },
 }
 
-pub(crate)trait BeanTypeHolder {
+pub trait BeanTypeHolder {
     type T: Bean + 'static;
 }
 

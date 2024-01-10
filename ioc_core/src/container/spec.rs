@@ -1,6 +1,6 @@
 use std::{
     alloc::Layout,
-    any::{type_name, TypeId},
+    any::TypeId,
     collections::{HashMap, HashSet},
 };
 
@@ -257,52 +257,6 @@ impl ContainerSpec {
                     })
                 }
             }
-        }
-    }
-
-    pub fn find<T>(&self) -> Result<BeanId>
-    where
-        T: 'static + Bean,
-    {
-        let type_id = TypeId::of::<T>();
-        let type_name = type_name::<T>();
-        if let Some(map) = self.type_bean_id_map.get(&type_id) {
-            if map.len() > 1 {
-                let mut candinates = vec![];
-                for name in map.keys() {
-                    candinates.push(*name);
-                }
-                let candinates = candinates.into_boxed_slice();
-                Err(ContainerError::TooManyCandinatedBean {
-                    type_name,
-                    candinates,
-                })
-            } else {
-                Ok(*map.values().last().expect("not here"))
-            }
-        } else {
-            Err(ContainerError::NoBean { type_name })
-        }
-    }
-
-    pub fn find_by_name<T>(&self, name: &'static str) -> Result<BeanId>
-    where
-        T: 'static + Bean,
-    {
-        if let Some(id) = self.name_bean_id_map.get(name) {
-            if self.bean_definitions[id.id].type_id == TypeId::of::<T>() {
-                Ok(*id)
-            } else {
-                Err(ContainerError::NoBeanWithName {
-                    type_name: type_name::<T>(),
-                    target_name: name,
-                })
-            }
-        } else {
-            Err(ContainerError::NoBeanWithName {
-                type_name: type_name::<T>(),
-                target_name: name,
-            })
         }
     }
 }

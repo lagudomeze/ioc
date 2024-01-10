@@ -75,6 +75,12 @@ pub struct Ref<T> {
     marker: PhantomData<T>,
 }
 
+impl<T> AsRef<T> for Ref<T> {
+    fn as_ref(&self) -> &T {
+        unsafe { self.ptr.as_ref() }
+    }
+}
+
 impl<B> BeanTypeHolder for Ref<B> where B: Bean + 'static{
     type T = B;
 }
@@ -93,7 +99,7 @@ pub trait BeanRetriever {
         })
     }
 
-    fn make_value<T>(&self, path: &'static str) -> Result<T> {
+    fn make_value<T>(&self, _path: &'static str) -> Result<T> {
         unimplemented!()
     }
 }
