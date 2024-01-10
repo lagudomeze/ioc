@@ -16,7 +16,7 @@ pub enum IocError {
     #[error("container error")]
     ContainerError {
         #[backtrace]
-        #[from] 
+        #[from]
         source: ContainerError,
     },
 }
@@ -25,14 +25,14 @@ type Result<T> = std::result::Result<T, IocError>;
 
 impl BeanRegistry {
     pub fn register<F: BeanFactory + 'static>(&mut self, module: &'static str) {
-        let definition = F::T::definition();
-        self.builder.append::<F>().unwrap();
+        let type_name = F::T::type_name();
+        let name = F::T::name();
 
-        info!(
-            "register bean name:{} 
-            module:{module} type:{}",
-            definition.name, definition.type_name
-        );
+        self.builder.append::<F>().expect(&format!(
+            "register bean name:{name} module:{module} type:{type_name} failed"
+        ));
+
+        info!("register bean name:{name} module:{module} type:{type_name}");
     }
 
     pub(crate) fn new() -> Self {

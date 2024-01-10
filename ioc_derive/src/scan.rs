@@ -37,7 +37,8 @@ pub(crate) struct CargoToml {
 
 impl CargoToml {
     pub(crate) fn current() -> CargoToml {
-        let cargo_manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
+        let cargo_manifest_dir =
+            env::var("CARGO_MANIFEST_DIR").expect("No CARGO_MANIFEST_DIR defined");
         let mut cargo_path = PathBuf::new();
         cargo_path.push(cargo_manifest_dir);
         cargo_path.push("Cargo.toml");
@@ -46,8 +47,8 @@ impl CargoToml {
     }
 
     pub(crate) fn from<P: AsRef<Path>>(path: P) -> CargoToml {
-        let cargo_toml_raw = fs::read_to_string(&path).unwrap();
-        toml::from_str(&cargo_toml_raw).unwrap()
+        let cargo_toml_raw = fs::read_to_string(&path).expect("Read Cargo.toml failed");
+        toml::from_str(&cargo_toml_raw).expect("Read Cargo.toml failed")
     }
 
     pub(crate) fn mod_names<'a>(&'a self) -> impl Iterator<Item = &'a str> {

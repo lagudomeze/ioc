@@ -170,7 +170,7 @@ impl BeanRetriever for MaybeUninitBeanRetriever {
     fn retrieve_ptr<T>(&self, id: &BeanId) -> Result<NonNull<T>> {
         let offset = self.spec.offset(id);
         let ptr = self.data[offset..].as_ptr().cast::<T>();
-        Ok(NonNull::new(ptr.cast_mut()).unwrap())
+        Ok(NonNull::new(ptr.cast_mut()).expect("Null ptr"))
     }
 }
 

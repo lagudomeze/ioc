@@ -67,7 +67,7 @@ pub fn bean_definition(input: TokenStream) -> TokenStream {
                     ::ioc_core::BeanQuery::named_from_holder::<#ty>(#name)
                 });
                 quote! {
-                    #field_name: ctx.make_ref::<_>(Some(#name)).unwrap()
+                    #field_name: ctx.make_ref::<_>(Some(#name)).expect("make ref failed")
                 }
             }
             FieldAttribute::Ref(None) => {
@@ -76,11 +76,11 @@ pub fn bean_definition(input: TokenStream) -> TokenStream {
                     ::ioc_core::BeanQuery::from_holder::<#ty>()
                 });
                 quote! {
-                    #field_name: ctx.make_ref::<_>(None).unwrap()
+                    #field_name: ctx.make_ref::<_>(None).expect("make ref failed")
                 }
             }
             FieldAttribute::Config(key) => quote! {
-                #field_name: ctx.make_value::<_>(#key).unwrap()
+                #field_name: ctx.make_value::<_>(#key).expect("make ref failed")
             },
             FieldAttribute::Default => quote! {
                 #field_name: Default::default()
