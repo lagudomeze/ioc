@@ -110,7 +110,7 @@ pub struct BeanDefinition {
 mod tests {
     use super::*;
 
-    struct A(usize);
+    pub struct A(pub usize);
 
     impl Bean for A {}
 
