@@ -38,7 +38,7 @@ pub fn run(_: TokenStream) -> TokenStream {
 
         #preload_mods
 
-        ::ioc::run_app();
+        ::ioc::run_app()?;
     };
 
     TokenStream::from(expanded)

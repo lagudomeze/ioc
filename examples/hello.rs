@@ -11,6 +11,7 @@ struct B {
     #[bean_ref("bbb")]
     _a: Ref<A>,
 }
-fn main() {
+fn main() -> anyhow::Result<()> {
     run!();
+    Ok(())
 }
