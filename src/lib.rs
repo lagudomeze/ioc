@@ -52,4 +52,3 @@ pub fn run_app() {
 }
 
 pub use ioc_derive::{run, Bean};
-pub use ioc_core::{*};
