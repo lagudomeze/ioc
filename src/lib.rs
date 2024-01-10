@@ -1,5 +1,5 @@
 use ioc_core::{Bean, BeanContainer, BeanContainerBuilder, BeanFactory};
-pub use linkme::distributed_slice;
+use linkme::distributed_slice;
 use log::info;
 
 #[derive(Debug)]
@@ -43,12 +43,11 @@ pub fn run_app() {
     use std::time::Duration;
 
     thread::scope(|s| {
-        println!("aaaa");
         s.spawn(|| {
             thread::sleep(Duration::from_secs(3));
         });
-        println!("bbb");
     });
 }
 
 pub use ioc_derive::{run, Bean};
+pub use ioc_core::Ref;

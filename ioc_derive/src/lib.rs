@@ -1,7 +1,8 @@
 use bean::{FieldAttribute, TypeAttribute};
 use proc_macro::TokenStream;
+use proc_macro2::Span;
 use quote::{format_ident, quote};
-use syn::{parse_macro_input, DeriveInput};
+use syn::{parse_macro_input, DeriveInput, Ident};
 
 mod scan;
 
@@ -92,7 +93,18 @@ pub fn bean_definition(input: TokenStream) -> TokenStream {
         }
     };
 
+    let register_method = Ident::new(&format!("__register_bean_{}", name), Span::call_site());
+
+    let bean_register = quote! {
+        #[::linkme::distributed_slice(::ioc::BEAN_COLLECTOR)]
+        fn #register_method(ctx: &mut ::ioc::BeanRegistry) {
+            ctx.register::<#name>(module_path!());
+        }
+    };
+
     let expanded = quote! {
+        #bean_register
+
         #bean_impl
 
         impl ::ioc_core::BeanFactory for #name  {
