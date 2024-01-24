@@ -21,7 +21,7 @@ anyhow = { workspace = true }
 members = ["ioc_core", "ioc_derive"]
 
 [workspace.dependencies]
-env_logger = "0.10.1"
+env_logger = "0.11.0"
 anyhow = "1.0.79"
 linkme = "0.3.22"
 ioc_core = { path = "./ioc_core" }
@@ -29,7 +29,7 @@ ioc_derive = { path = "./ioc_derive" }
 crossbeam-epoch = "0.9.18"
 log = "0.4.20"
 thiserror = "1.0.56"
-proc-macro2 = "1.0.76"
+proc-macro2 = "1.0.78"
 quote = "1.0.35"
 serde = { version = "1.0.195" }
 syn = { version = "2.0.48", features = [
