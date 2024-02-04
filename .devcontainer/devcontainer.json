@@ -6,7 +6,8 @@
 			"profile": "complete"
 		},
 		"ghcr.io/devcontainers-contrib/features/zsh-plugins:0": {
-			"omzPlugins" : "https://github.com/zsh-users/zsh-autosuggestions"
+			"plugins" : "zsh-syntax-highlighting zsh-autosuggestions zsh-history-substring-search",
+			"omzPlugins" : "https://github.com/zsh-users/zsh-autosuggestions https://github.com/zsh-users/zsh-syntax-highlighting.git https://github.com/zsh-users/zsh-history-substring-search"
 			
 		}
 	}
