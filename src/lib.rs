@@ -2,7 +2,7 @@
 
 use ioc_core::{Bean, BeanContainer, BeanContainerBuilder, BeanFactory, ContainerError};
 use linkme::distributed_slice;
-use log::info;
+use log::{debug, info};
 
 #[derive(Debug)]
 pub struct BeanRegistry {
@@ -58,11 +58,11 @@ pub fn run_app() -> Result<()> {
     //todo 后续找到container中的 需要run的bean执行，或者
 
     use std::thread;
-    use std::time::Duration;
 
     thread::scope(|s| {
         s.spawn(|| {
-            thread::sleep(Duration::from_secs(3));
+            debug!("start thread!");
+            debug!("end thread!");
         });
     });
 
