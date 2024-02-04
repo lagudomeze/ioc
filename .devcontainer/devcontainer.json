@@ -4,6 +4,10 @@
 		"ghcr.io/devcontainers/features/rust:1": {
 			"version": "latest",
 			"profile": "complete"
+		},
+		"ghcr.io/devcontainers-contrib/features/zsh-plugins:0": {
+			"omzPlugins" : "https://github.com/zsh-users/zsh-autosuggestions"
+			
 		}
 	}
 }
