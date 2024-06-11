@@ -9,3 +9,4 @@ edition = "2021"
 [dependencies]
 log = { workspace = true }
 thiserror = { workspace = true }
+cfg-rs = { workspace = true }

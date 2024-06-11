@@ -1,9 +1,18 @@
-#![feature(strict_provenance, exposed_provenance, new_uninit)]
+#![feature(once_cell_try, trait_alias)]
 
-mod error;
+pub use bean::{
+    Bean,
+    BeanDefinition,
+    BeanQuery,
+    Factory,
+    BeanSingleton,
+};
+pub use error::{IocError, Result};
+pub use init::BeanId;
 
 pub(crate) mod bean;
-pub(crate) mod container;
 
-pub use bean::{Bean, BeanDefinition, BeanQuery};
-pub use container::{BeanContainer, BeanContainerBuilder, BeanFactory, BeanId, BeanRetriever, Ref, ContainerError};
+mod error;
+mod init;
+mod config;
+

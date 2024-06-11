@@ -6,6 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+cfg-rs = { workspace = true }
 env_logger = { workspace = true }
 ioc_core = { workspace = true }
 ioc_derive = { workspace = true }
@@ -16,28 +17,31 @@ thiserror = { workspace = true }
 [dev-dependencies]
 anyhow = { workspace = true }
 
-
 [workspace]
 members = ["ioc_core", "ioc_derive"]
 
 [workspace.dependencies]
-env_logger = "0.11.0"
-anyhow = "1.0.79"
-linkme = "0.3.22"
+cfg-rs = { version = "0.4.0", features = ["full"] }
+env_logger = "0.11.3"
+anyhow = "1.0.86"
+linkme = { version = "0.3" }
+crossbeam-epoch = "0.9.18"
+log = "0.4.21"
+thiserror = "1.0.61"
+proc-macro2 = "1.0.85"
+quote = "1.0.36"
+serde = { version = "1.0.203" }
+toml = "0.8.14"
 ioc_core = { path = "./ioc_core" }
 ioc_derive = { path = "./ioc_derive" }
-crossbeam-epoch = "0.9.18"
-log = "0.4.20"
-thiserror = "1.0.56"
-proc-macro2 = "1.0.78"
-quote = "1.0.35"
-serde = { version = "1.0.195" }
-syn = { version = "2.0.48", features = [
+
+[workspace.dependencies.syn]
+version = "2.0.66"
+features = [
     "extra-traits",
     "derive",
     "parsing",
     "printing",
     "clone-impls",
     "proc-macro",
-] }
-toml = "0.8.8"
+]
