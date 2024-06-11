@@ -178,33 +178,40 @@ mod tests {
     fn test_inject_init() {
         init_cargo_env!();
         let config = Configuration::with_predefined_builder()
-            .set("cfg_a.a", "aaaa")
-            .set("cfg_a.b", "bbbb")
+            .set("cfg_a.a", "data")
+            .set("cfg_a.b", "babel")
             .init().unwrap();
 
-        let cfg = CfgA::init(&config).unwrap();
-        
-        let init : fn(&Configuration) -> crate::Result<()> = |config: &Configuration| {
+        let init_a : fn(&Configuration) -> crate::Result<()> = |config: &Configuration| {
             let cfg = CfgA::init(&config)?;
             A::init(&cfg)?;
             Ok(())
         };
 
-        let destroy : fn() = A::destroy;
+        let destroy_a : fn() = A::destroy;
 
-        init(&config).unwrap();
+        let init_b : fn(&Configuration) -> crate::Result<()> = |config: &Configuration| {
+            let cfg = CfgA::init(&config)?;
+            B::init(&cfg)?;
+            Ok(())
+        };
+
+        let destroy_b : fn() = B::destroy;
+
+        init_a(&config).unwrap();
         let a = A::get();
-        assert_eq!("aaaa", a.0);
+        assert_eq!("data", a.0);
 
-        let b = B::init(cfg).unwrap();
-        assert_eq!("bbbb", b.1);
+        init_b(&config).unwrap();
+        let b = B::get();
+        assert_eq!("babel", b.1);
         assert_eq!(a as *const A, b.0 as *const A);
 
         assert_eq!(a as *const A, A::get() as *const A);
         assert_eq!(b as *const B, B::get() as *const B);
-        
-        B::destroy();
-        destroy();
+
+        destroy_b();
+        destroy_a();
         
     }
 
