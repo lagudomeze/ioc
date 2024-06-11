@@ -1,8 +1,9 @@
 use std::any::{type_name, TypeId};
 use std::sync::OnceLock;
 
-use cfg_rs::{Configuration, FromConfigWithPrefix};
 use log::{debug, info, warn};
+
+use crate::config::IocConfig;
 
 pub trait Bean {
     fn dependencies() -> Vec<BeanQuery> {
@@ -74,7 +75,7 @@ pub trait Factory {
 
     fn build(config: &Self::Config) -> crate::Result<Self::Product>;
 
-    fn drop(_product: &Self::Product) {}
+    fn destroy(_product: &Self::Product) {}
 }
 
 pub trait Singleton: Factory {
@@ -88,21 +89,23 @@ pub trait Singleton: Factory {
         Ok(Self::holder().get_or_try_init(|| Self::build(config))?)
     }
 
-    fn destroy() {
+    fn drop() {
         if let Some(s) = Self::holder().get() {
-            Self::drop(s);
+            Self::destroy(s);
             info!("{} is dropped!", type_name::<Self::Product>());
         } else {
             warn!("{} is not init! so skip destroy", type_name::<Self::Product>());
         }
-        
     }
 }
 
-pub trait BeanSingleton: Singleton where
-    Self::Product: Bean,
-    Self::Config: FromConfigWithPrefix + Factory<Config=Configuration, Product=Self::Config> {
+pub trait BeanSingleton: Singleton {
 }
+
+impl<B> BeanSingleton for B where
+    B: Singleton,
+    Self::Product: Bean,
+    Self::Config: IocConfig {}
 
 #[cfg(test)]
 mod tests {
@@ -127,7 +130,7 @@ mod tests {
     }
 
     pub struct A(String);
-    
+
     impl Bean for A {}
 
     impl Factory for A {
@@ -146,7 +149,6 @@ mod tests {
         }
     }
 
-    impl BeanSingleton for A {}
 
     struct B(&'static A, String);
 
@@ -172,7 +174,6 @@ mod tests {
         }
     }
 
-    impl BeanSingleton for B {}
 
     #[test]
     fn test_inject_init() {
@@ -188,7 +189,7 @@ mod tests {
             Ok(())
         };
 
-        let destroy_a : fn() = A::destroy;
+        let drop_a : fn() = A::drop;
 
         let init_b : fn(&Configuration) -> crate::Result<()> = |config: &Configuration| {
             let cfg = CfgA::init(&config)?;
@@ -196,7 +197,7 @@ mod tests {
             Ok(())
         };
 
-        let destroy_b : fn() = B::destroy;
+        let drop_b : fn() = B::drop;
 
         init_a(&config).unwrap();
         let a = A::get();
@@ -210,9 +211,8 @@ mod tests {
         assert_eq!(a as *const A, A::get() as *const A);
         assert_eq!(b as *const B, B::get() as *const B);
 
-        destroy_b();
-        destroy_a();
-        
+        drop_b();
+        drop_a();
     }
 
     #[test]

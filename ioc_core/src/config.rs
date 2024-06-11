@@ -2,6 +2,8 @@ use cfg_rs::{Configuration, FromConfigWithPrefix};
 
 use crate::Factory;
 
+pub trait IocConfig: FromConfigWithPrefix + Factory<Config=Configuration, Product=Self> {}
+
 impl<C> Factory for C where C: FromConfigWithPrefix {
     type Config = Configuration;
     type Product = Self;
@@ -10,6 +12,8 @@ impl<C> Factory for C where C: FromConfigWithPrefix {
         Ok(config.get_predefined()?)
     }
 }
+
+impl<C> IocConfig for C where C: FromConfigWithPrefix {}
 
 #[cfg(test)]
 mod tests {
