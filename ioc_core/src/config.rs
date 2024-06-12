@@ -1,16 +1,25 @@
 use cfg_rs::{Configuration, FromConfigWithPrefix};
 
-use crate::{Bean, BeanHolder};
+use crate::Bean;
 use crate::bean::{BeanFactory, Context};
 
-impl<C> Bean for C where C: FromConfigWithPrefix {}
-
-impl<C> BeanFactory for C where C: FromConfigWithPrefix {
+impl<C> BeanFactory for C where C: FromConfigWithPrefix + Bean {
     type Bean = Self;
 
-    fn build(self, ctx: &mut Context) -> crate::Result<Self::Bean> {
-        let config = ctx.init::<Configuration>()?;
-        Ok(config.get_predefined()?)
+    fn build(ctx: &mut Context) -> crate::Result<Self::Bean> {
+        Ok(ctx.config.source.get_predefined()?)
+    }
+}
+
+pub struct Config {
+    source: Configuration,
+}
+
+impl From<Configuration> for Config {
+    fn from(source: Configuration) -> Self {
+        Self {
+            source
+        }
     }
 }
 
@@ -20,33 +29,8 @@ mod tests {
 
     use cfg_rs::*;
 
-    use crate::bean::{BeanFactory, Context};
-    use crate::BeanHolder;
-
-    struct ConfigTest;
-
-    impl BeanFactory for ConfigTest {
-        type Bean = Configuration;
-
-        fn build(self, _: &mut Context) -> crate::Result<Self::Bean> {
-            init_cargo_env!();
-
-            let config = Configuration::with_predefined_builder()
-                .set("cfg_test.hello", "world")
-                .init()?;
-
-            Ok(config)
-        }
-    }
-
-    impl BeanHolder for Configuration {
-        type Factory = ConfigTest;
-
-        fn holder<'a>() -> &'a OnceLock<Self::Bean> {
-            static HOLDER: OnceLock<Configuration> = OnceLock::new();
-            &HOLDER
-        }
-    }
+    use crate::{Bean, BeanHolder};
+    use crate::bean::Context;
 
     #[derive(FromConfig)]
     #[config(prefix = "cfg_test")]
@@ -56,7 +40,10 @@ mod tests {
         //fields...
     }
 
+    impl Bean for Test {}
+
     impl BeanHolder for Test {
+        type Bean = Test;
         type Factory = Test;
 
         fn holder<'a>() -> &'a OnceLock<Self::Bean> {
@@ -67,9 +54,16 @@ mod tests {
 
     #[test]
     fn it_works() -> Result<(), ConfigError> {
-        let mut ctx = Context::new();
+        init_cargo_env!();
 
-        let result = ctx.init::<Test>()?;
+        let config = Configuration::with_predefined_builder()
+            .set("cfg_test.hello", "world")
+            .init()?
+            .into();
+
+        let mut ctx = Context::new(config);
+
+        let result = ctx.get_or_init::<Test>()?;
 
         assert_eq!("world", result.v);
 

@@ -1,9 +1,3 @@
-use std::{
-    any::TypeId,
-    collections::{HashSet, VecDeque},
-    sync::OnceLock,
-};
-
 use thiserror::Error;
 
 pub type Result<T> = std::result::Result<T, IocError>;
@@ -30,13 +24,6 @@ impl From<cfg_rs::ConfigError> for IocError {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::{HashSet, VecDeque};
-    use std::sync::OnceLock;
-
-    use cfg_rs::{Configuration, init_cargo_env};
-
-    use crate::IocError;
-
     // pub struct A(String);
     //
     // pub struct B(&'static A, String);
