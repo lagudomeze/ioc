@@ -1,11 +1,10 @@
 #![feature(once_cell_try, trait_alias)]
+#![feature(associated_type_defaults)]
 
 pub use bean::{
     Bean,
     BeanDefinition,
-    BeanQuery,
-    Factory,
-    BeanSingleton,
+    BeanHolder,
 };
 pub use error::{IocError, Result};
 pub use init::BeanId;
