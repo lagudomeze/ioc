@@ -1,5 +1,4 @@
-#![feature(once_cell_try, trait_alias)]
-#![feature(associated_type_defaults)]
+#![feature(once_cell_try)]
 
 pub use bean::{
     Bean,
