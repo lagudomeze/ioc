@@ -29,7 +29,7 @@ mod tests {
 
     use cfg_rs::*;
 
-    use crate::{Bean, BeanHolder};
+    use crate::Bean;
     use crate::bean::Context;
 
     #[derive(FromConfig)]
@@ -40,13 +40,11 @@ mod tests {
         //fields...
     }
 
-    impl Bean for Test {}
-
-    impl BeanHolder for Test {
-        type Bean = Test;
+    impl Bean for Test {
+        type Type= Test;
         type Factory = Test;
 
-        fn holder<'a>() -> &'a OnceLock<Self::Bean> {
+        fn holder<'a>() -> &'a OnceLock<Self::Type> {
             static HOLDER: OnceLock<Test> = OnceLock::new();
             &HOLDER
         }

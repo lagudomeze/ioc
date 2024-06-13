@@ -2,8 +2,7 @@
 
 pub use bean::{
     Bean,
-    BeanDefinition,
-    BeanHolder,
+    BeanSpec,
 };
 pub use error::{IocError, Result};
 pub use init::BeanId;
