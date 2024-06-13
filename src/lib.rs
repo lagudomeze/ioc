@@ -1,73 +1,28 @@
-#![feature(error_generic_member_access)]
-
-use ioc_core::{Bean, BeanContainer, BeanContainerBuilder, BeanFactory, ContainerError};
+use cfg_rs::{Configuration, init_cargo_env};
+use ioc_core::{Result, Context};
 use linkme::distributed_slice;
-use log::{debug, info};
 
-#[derive(Debug)]
-pub struct BeanRegistry {
-    builder: BeanContainerBuilder,
-}
-
-use thiserror::Error;
-
-#[derive(Error, Debug)]
-pub enum IocError {
-    #[error("container error")]
-    ContainerError {
-        #[backtrace]
-        #[from]
-        source: ContainerError,
-    },
-}
-
-type Result<T> = std::result::Result<T, IocError>;
-
-impl BeanRegistry {
-    pub fn register<F: BeanFactory + 'static>(&mut self, module: &'static str) {
-        let type_name = F::T::type_name();
-        let name = F::T::name();
-
-        self.builder.append::<F>().expect(&format!(
-            "register bean name:{name} module:{module} type:{type_name} failed"
-        ));
-
-        info!("register bean name:{name} module:{module} type:{type_name}");
-    }
-
-    pub(crate) fn new() -> Self {
-        Self {
-            builder: BeanContainer::builder(),
-        }
-    }
-}
 
 #[distributed_slice]
-pub static BEAN_COLLECTOR: [fn(&mut BeanRegistry)];
+pub static BEAN_COLLECTOR: [fn(&mut Context) -> Result<()>] = [..];
 
 pub fn run_app() -> Result<()> {
     env_logger::init();
 
-    let mut ctx = BeanRegistry::new();
+    init_cargo_env!();
+
+    let config = Configuration::with_predefined_builder()
+        .init()?
+        .into();
+
+    let mut ctx = Context::new(config);
     for collect in BEAN_COLLECTOR {
-        collect(&mut ctx);
+        collect(&mut ctx)?;
     }
-
-    let _container = ctx.builder.build()?;
-
-    //todo 后续找到container中的 需要run的bean执行，或者
-
-    use std::thread;
-
-    thread::scope(|s| {
-        s.spawn(|| {
-            debug!("start thread!");
-            debug!("end thread!");
-        });
-    });
 
     Ok(())
 }
 
-pub use ioc_core::Ref;
+pub use ioc_core::Bean;
+
 pub use ioc_derive::{run, Bean};

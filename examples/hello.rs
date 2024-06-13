@@ -1,6 +1,6 @@
 // examples/hello.rs
 
-use ioc::{run, Bean, Ref};
+use ioc::{run, Bean};
 
 #[derive(Bean)]
 #[name("aaa")]
@@ -8,10 +8,13 @@ struct A;
 
 #[derive(Bean)]
 struct B {
-    #[bean_ref("aaa")]
-    _a: Ref<A>,
+    #[bean(crate::A)]
+    _a: &'static A,
 }
 fn main() -> anyhow::Result<()> {
     run!();
+    println!("{:p}", A::get());
+    println!("{:p}", B::get());
+    println!("{:p}", B::get()._a);
     Ok(())
 }

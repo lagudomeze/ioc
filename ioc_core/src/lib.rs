@@ -3,6 +3,8 @@
 pub use bean::{
     Bean,
     BeanSpec,
+    Context,
+    BeanFactory
 };
 pub use error::{IocError, Result};
 pub use init::BeanId;

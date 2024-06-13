@@ -2,6 +2,7 @@ use std::any::{type_name, TypeId};
 use std::collections::{HashSet, VecDeque};
 use std::sync::OnceLock;
 
+use cfg_rs::FromConfig;
 use log::debug;
 
 use crate::config::Config;
@@ -165,6 +166,10 @@ impl Context {
                 return result;
             }
         }
+    }
+
+    pub fn get_config<T: FromConfig>(&self, key: &str) -> crate::Result<T> {
+        Ok(self.config.source.get(key)?)
     }
 }
 

@@ -12,7 +12,7 @@ impl<C> BeanFactory for C where C: FromConfigWithPrefix + Bean {
 }
 
 pub struct Config {
-    source: Configuration,
+    pub(crate) source: Configuration,
 }
 
 impl From<Configuration> for Config {
