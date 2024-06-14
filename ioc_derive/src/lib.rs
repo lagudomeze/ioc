@@ -2,7 +2,8 @@ use proc_macro::TokenStream;
 
 use proc_macro2::{Ident, Span};
 use quote::{format_ident, quote};
-use syn::{DeriveInput, Error, parse_macro_input, Type, TypeReference};
+use syn::{DeriveInput, Error, LitStr, parse_macro_input, Token, Type, TypeReference};
+use syn::parse::{Parse, ParseStream};
 use syn::spanned::Spanned;
 
 use bean::{FieldAttribute, TypeAttribute};
@@ -32,15 +33,93 @@ fn preload_mods() -> proc_macro2::TokenStream {
     }
 }
 
+struct AppConfig {
+    name: proc_macro2::TokenStream,
+    dir: proc_macro2::TokenStream,
+    profile: proc_macro2::TokenStream,
+}
+
+impl AppConfig {
+    fn build(self) -> proc_macro2::TokenStream {
+        let Self {name, dir, profile} = self;
+
+        quote! {
+            {
+                use cfg_rs::{Configuration, init_cargo_env};
+                init_cargo_env!();
+
+                Configuration::with_predefined_builder()
+                    .set_cargo_env(init_cargo_env())
+                    .set_name(#name)
+                    .set_dir(#dir)
+                    .set_profile(#profile)
+                    .init()
+                    .map_err(::ioc_core::IocError::from)?
+                    .into()
+            }
+        }
+    }
+}
+
+struct KeyValue {
+    key: Ident,
+    _eq_token: Token![=],
+    value: LitStr,
+}
+
+impl Parse for KeyValue {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        Ok(Self {
+            key: input.parse::<_>()?,
+            _eq_token: input.parse::<_>()?,
+            value: input.parse::<_>()?,
+        })
+    }
+}
+
+impl Parse for AppConfig {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let key_values = input.parse_terminated(KeyValue::parse, Token![,])?;
+
+        let mut name = quote! { env!("CARGO_PKG_NAME") };
+        let mut dir = quote! { "." };
+        let mut profile = quote! { "prod"};
+        for kv in key_values.iter() {
+            if kv.key == "name" {
+                let value = kv.value.value();
+                name = quote! { #value };
+            } else if kv.key == "dir" {
+                let value = kv.value.value();
+                dir = quote! { #value };
+            } else if kv.key == "profile" {
+                let value = kv.value.value();
+                profile = quote! { #value };
+            } else {
+                eprintln!("key:{} value:{} is ignored ", kv.key, kv.value.value());
+            }
+        }
+
+        Ok(Self {
+            name,
+            dir,
+            profile,
+        })
+    }
+}
+
 #[proc_macro]
-pub fn run(_: TokenStream) -> TokenStream {
+pub fn run(input: TokenStream) -> TokenStream {
     let preload_mods = preload_mods();
+
+    let config = parse_macro_input!(input as AppConfig).build();
 
     let expanded = quote! {
 
         #preload_mods
 
-        ::ioc::run_app()?;
+        let config = #config;
+
+        ::ioc::run_app(config)?;
     };
 
     TokenStream::from(expanded)

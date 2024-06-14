@@ -17,6 +17,8 @@ impl Default for S {
 #[derive(Bean)]
 #[name("aaa")]
 struct A {
+    #[value("aaa.v")]
+    _v: bool,
     _s: S,
 }
 
@@ -25,8 +27,11 @@ struct AnotherBeanA;
 impl BeanFactory for AnotherBeanA {
     type Bean = A;
 
-    fn build(_: &mut Context) -> ioc_core::Result<Self::Bean> {
-        Ok(A { _s: S("hihi") })
+    fn build(ctx: &mut Context) -> ioc_core::Result<Self::Bean> {
+        Ok(A {
+            _v: ctx.get_config::<_>("aaa.t")?,
+            _s: S("hihi"),
+        })
     }
 }
 
@@ -52,7 +57,7 @@ struct B {
     _a2: &'static A,
 }
 fn main() -> anyhow::Result<()> {
-    run!();
+    run!(config = "./", profile = "dev");
     println!("{:p}", A::get());
     println!("{:p}", B::get());
     println!("{:p}", B::get()._a);

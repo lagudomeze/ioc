@@ -1,4 +1,4 @@
-use syn::{Attribute, LitStr, Meta, parse::Parse, token::Eq, Type};
+use syn::{Attribute, LitStr, Meta, parse::Parse, Type};
 
 pub(crate) enum FieldAttribute {
     Ref(Option<Type>),
@@ -16,7 +16,7 @@ impl FieldAttribute {
                     let attr = attr.parse_args::<BeanRef>()?;
                     return Ok(FieldAttribute::Ref(attr.0));
                 }
-            } else if attr.path().is_ident("config") {
+            } else if attr.path().is_ident("value") {
                 let attr = attr.parse_args::<ConfigAttr>()?;
                 return Ok(FieldAttribute::Config(attr.0));
             }
@@ -54,7 +54,6 @@ impl Parse for MaybeString {
 
 impl Parse for ConfigAttr {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-        input.parse::<Eq>()?;
         let path = input.parse::<LitStr>()?.value();
         Ok(ConfigAttr(path))
     }

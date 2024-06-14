@@ -6,6 +6,9 @@ pub use bean::{
     Context,
     BeanFactory
 };
+pub use config::{
+    Config
+};
 pub use error::{IocError, Result};
 pub use init::BeanId;
 
