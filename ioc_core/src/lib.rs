@@ -1,23 +1,20 @@
-use std::sync::OnceLock;
+#![feature(once_cell_try)]
 
-pub use log::*;
+pub use bean::{
+    Bean,
+    BeanSpec,
+    Context,
+    BeanFactory
+};
+pub use config::{
+    Config
+};
+pub use error::{IocError, Result};
+pub use init::BeanId;
 
-static GLOBAL_CONTEXT: OnceLock<ApplicationContext> = OnceLock::new();
+pub(crate) mod bean;
 
-mod bean;
-mod container;
+mod error;
+mod init;
+mod config;
 
-pub use bean::{Bean, BeanDefinition};
-pub use container::{BeanContainer, BeanContainerBuilder};
-
-pub struct ApplicationContext {
-    container: BeanContainer,
-}
-
-impl ApplicationContext {
-    fn new(builder: BeanContainerBuilder) -> Self {
-        let container = builder.build();
-
-        Self { container }
-    }
-}
