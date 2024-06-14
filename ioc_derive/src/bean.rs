@@ -1,13 +1,4 @@
-use syn::{parse::Parse, token::Eq, Attribute, LitStr,  Type};
-use thiserror::Error;
-
-#[derive(Error, Debug)]
-pub enum AttributeParseError {
-    #[error("some syn error")]
-    SynError(#[from] syn::Error),
-}
-
-type Result<T> = std::result::Result<T, AttributeParseError>;
+use syn::{Attribute, LitStr, Meta, parse::Parse, token::Eq, Type};
 
 pub(crate) enum FieldAttribute {
     Ref(Option<Type>),
@@ -16,11 +7,15 @@ pub(crate) enum FieldAttribute {
 }
 
 impl FieldAttribute {
-    pub fn from_attributes(attrs: &[Attribute]) -> Result<Self> {
+    pub fn from_attributes(attrs: &[Attribute]) -> Result<Self, syn::Error> {
         for attr in attrs {
             if attr.path().is_ident("bean") {
-                let attr = attr.parse_args::<BeanRef>()?;
-                return Ok(FieldAttribute::Ref(attr.0));
+                if let Meta::Path(_) = attr.meta {
+                    return Ok(FieldAttribute::Ref(None));
+                } else {
+                    let attr = attr.parse_args::<BeanRef>()?;
+                    return Ok(FieldAttribute::Ref(attr.0));
+                }
             } else if attr.path().is_ident("config") {
                 let attr = attr.parse_args::<ConfigAttr>()?;
                 return Ok(FieldAttribute::Config(attr.0));
@@ -70,7 +65,7 @@ pub(crate) struct TypeAttribute {
 }
 
 impl TypeAttribute {
-    pub fn from_attributes(attrs: &[Attribute]) -> Result<Self> {
+    pub fn from_attributes(attrs: &[Attribute]) -> Result<Self, syn::Error> {
         for attr in attrs {
             if attr.path().is_ident("name") {
                 let attr = attr.parse_args::<MaybeString>()?;

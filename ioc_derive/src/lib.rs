@@ -2,7 +2,8 @@ use proc_macro::TokenStream;
 
 use proc_macro2::{Ident, Span};
 use quote::{format_ident, quote};
-use syn::{DeriveInput, parse_macro_input};
+use syn::{DeriveInput, Error, parse_macro_input, Type, TypeReference};
+use syn::spanned::Spanned;
 
 use bean::{FieldAttribute, TypeAttribute};
 
@@ -59,31 +60,39 @@ pub fn bean_definition(input: TokenStream) -> TokenStream {
     let mut field_initializers = vec![];
 
     for field in fields.iter() {
-        let field_name = &field.ident;
-        let attr = FieldAttribute::from_attributes(&field.attrs).expect("");
-        let field_initializer = match attr {
-            FieldAttribute::Ref(Some(name)) => {
-                quote! {
-                    #field_name: ctx.get_or_init::<#name>()?
-                }
-            }
+        let span = field.ty.span();
+
+        let attr = match FieldAttribute::from_attributes(&field.attrs) {
+            Ok(attr) => attr,
+            Err(err) => return err.to_compile_error().into(),
+        };
+        let initializer = match attr {
+            FieldAttribute::Ref(Some(name)) => quote! { ctx.get_or_init::<#name>()? },
             FieldAttribute::Ref(None) => {
-                let ty: &syn::Type = &field.ty;
-                quote! {
-                    #field_name: ctx.get_or_init::<#ty>()?
+                if let Type::Reference(TypeReference { ref elem, .. }) = field.ty {
+                    quote! { ctx.get_or_init::<#elem>()? }
+                } else {
+                    return Error::new(span, "Only &'s BeanType is support! Here s could be static!")
+                        .to_compile_error()
+                        .into()
                 }
-            }
-            FieldAttribute::Config(key) => quote! {
-                #field_name: ctx.get_config::<_>(#key)?
             },
-            FieldAttribute::Default => quote! {
-                #field_name: Default::default()
-            },
+            FieldAttribute::Config(key) => quote! { ctx.get_config::<_>(#key)? },
+            FieldAttribute::Default => quote! { Default::default() },
+        };
+
+        let field_initializer = if let Some(field_name) = &field.ident {
+            quote! { #field_name : #initializer }
+        } else {
+            initializer
         };
         field_initializers.push(field_initializer);
     }
 
-    let type_attr = TypeAttribute::from_attributes(&input.attrs).expect("");
+    let type_attr = match TypeAttribute::from_attributes(&input.attrs) {
+        Ok(attr) => attr,
+        Err(err) => return err.to_compile_error().into(),
+    };
 
     let bean_factory_impl = quote! {
         impl ::ioc_core::BeanFactory for #name {
