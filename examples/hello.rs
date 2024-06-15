@@ -57,7 +57,7 @@ struct B {
     _a2: &'static A,
 }
 fn main() -> anyhow::Result<()> {
-    run!(config = "./", profile = "dev");
+    run!(dir = "./", profile = "dev");
     println!("{:p}", A::get());
     println!("{:p}", B::get());
     println!("{:p}", B::get()._a);
