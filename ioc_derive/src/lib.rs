@@ -54,7 +54,7 @@ impl AppConfig {
                     .set_dir(#dir)
                     .set_profile(#profile)
                     .init()
-                    .map_err(::ioc_core::IocError::from)?
+                    .map_err(::ioc::IocError::from)?
                     .into()
             }
         }
@@ -184,10 +184,10 @@ pub fn bean_definition(input: TokenStream) -> TokenStream {
         quote! {}
     } else {
         quote! {
-            impl ::ioc_core::BeanFactory for #name {
+            impl ::ioc::BeanFactory for #name {
                 type Bean = #name;
 
-                fn build(ctx: &mut ::ioc_core::Context) -> ioc_core::Result<Self::Bean> {
+                fn build(ctx: &mut ::ioc::Context) -> ioc_core::Result<Self::Bean> {
                     Ok(Self::Bean {
                         #(#field_initializers),*
                     })
@@ -199,8 +199,8 @@ pub fn bean_definition(input: TokenStream) -> TokenStream {
     let bean_name = type_attr.name.clone().unwrap_or_else(|| name.to_string());
 
     let bean_impl = quote! {
-        impl ::ioc_core::Bean for #name {
-            type Type = <#name as BeanFactory>::Bean;
+        impl ::ioc::Bean for #name {
+            type Type = <#name as ioc::BeanFactory>::Bean;
             type Factory = Self;
 
             fn name() -> &'static str {
@@ -208,7 +208,7 @@ pub fn bean_definition(input: TokenStream) -> TokenStream {
             }
 
             fn holder<'a>() -> &'a std::sync::OnceLock<Self::Type> {
-                static HOLDER: std::sync::OnceLock<<#name as BeanFactory>::Bean> = std::sync::OnceLock::new();
+                static HOLDER: std::sync::OnceLock<<#name as ioc::BeanFactory>::Bean> = std::sync::OnceLock::new();
                 &HOLDER
             }
         }
@@ -218,8 +218,8 @@ pub fn bean_definition(input: TokenStream) -> TokenStream {
 
     let bean_register = quote! {
         #[allow(non_snake_case)]
-        #[::linkme::distributed_slice(::ioc::BEAN_COLLECTOR)]
-        fn #register_method(ctx: &mut ::ioc_core::Context) -> ::ioc_core::Result<()>  {
+        #[::ioc::linkme::distributed_slice(::ioc::BEAN_COLLECTOR)]
+        fn #register_method(ctx: &mut ::ioc::Context) -> ::ioc::Result<()>  {
             ctx.get_or_init::<#name>()?;
             Ok(())
         }

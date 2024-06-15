@@ -8,18 +8,18 @@ struct A;
 
 #[derive(Bean)]
 struct B {
-    #[bean(crate::A)]
+    #[inject(crate::A)]
     _a: &'static A,
-    #[bean(crate::C)]
+    #[inject(crate::C)]
     _c: &'static C,
 }
 
 
 #[derive(Bean)]
 struct C {
-    #[bean(crate::A)]
+    #[inject(crate::A)]
     _a: &'static A,
-    #[bean(crate::B)]
+    #[inject(crate::B)]
     _b: &'static B,
 }
 
