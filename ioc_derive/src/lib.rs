@@ -8,8 +8,8 @@ use syn::spanned::Spanned;
 
 use bean::{FieldAttribute, TypeAttribute};
 
-mod scan;
 mod bean;
+mod scan;
 
 fn preload_mods() -> proc_macro2::TokenStream {
     use scan::CargoToml;
@@ -41,7 +41,7 @@ struct AppConfig {
 
 impl AppConfig {
     fn build(self) -> proc_macro2::TokenStream {
-        let Self {name, dir, profile} = self;
+        let Self { name, dir, profile } = self;
 
         quote! {
             {
@@ -99,11 +99,7 @@ impl Parse for AppConfig {
             }
         }
 
-        Ok(Self {
-            name,
-            dir,
-            profile,
-        })
+        Ok(Self { name, dir, profile })
     }
 }
 
@@ -125,7 +121,7 @@ pub fn run(input: TokenStream) -> TokenStream {
     TokenStream::from(expanded)
 }
 
-#[proc_macro_derive(Bean, attributes(bean, value, name))]
+#[proc_macro_derive(Bean, attributes(inject, value, bean, name, custom_factory))]
 pub fn bean_definition(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
 
@@ -135,6 +131,14 @@ pub fn bean_definition(input: TokenStream) -> TokenStream {
         syn::Data::Struct(ref data_struct) => &data_struct.fields,
         _ => panic!("Bean derive macro only works with structs"),
     };
+
+    let mut custom_factory = false;
+    for attr in input.attrs.iter() {
+        if attr.path().is_ident("custom_factory") {
+            custom_factory = true;
+            break;
+        }
+    }
 
     let mut field_initializers = vec![];
 
@@ -151,11 +155,14 @@ pub fn bean_definition(input: TokenStream) -> TokenStream {
                 if let Type::Reference(TypeReference { ref elem, .. }) = field.ty {
                     quote! { ctx.get_or_init::<#elem>()? }
                 } else {
-                    return Error::new(span, "Only &'s BeanType is support! Here s could be static!")
-                        .to_compile_error()
-                        .into()
+                    return Error::new(
+                        span,
+                        "Only &'s BeanType is support! Here s could be static!",
+                    )
+                    .to_compile_error()
+                    .into();
                 }
-            },
+            }
             FieldAttribute::Config(key) => quote! { ctx.get_config::<_>(#key)? },
             FieldAttribute::Default => quote! { Default::default() },
         };
@@ -173,14 +180,18 @@ pub fn bean_definition(input: TokenStream) -> TokenStream {
         Err(err) => return err.to_compile_error().into(),
     };
 
-    let bean_factory_impl = quote! {
-        impl ::ioc_core::BeanFactory for #name {
-            type Bean = #name;
+    let bean_factory_impl = if custom_factory {
+        quote! {}
+    } else {
+        quote! {
+            impl ::ioc_core::BeanFactory for #name {
+                type Bean = #name;
 
-            fn build(ctx: &mut ::ioc_core::Context) -> ioc_core::Result<Self::Bean> {
-                Ok(Self::Bean {
-                    #(#field_initializers),*
-                })
+                fn build(ctx: &mut ::ioc_core::Context) -> ioc_core::Result<Self::Bean> {
+                    Ok(Self::Bean {
+                        #(#field_initializers),*
+                    })
+                }
             }
         }
     };
@@ -189,7 +200,7 @@ pub fn bean_definition(input: TokenStream) -> TokenStream {
 
     let bean_impl = quote! {
         impl ::ioc_core::Bean for #name {
-            type Type = Self;
+            type Type = <#name as BeanFactory>::Bean;
             type Factory = Self;
 
             fn name() -> &'static str {
@@ -197,7 +208,7 @@ pub fn bean_definition(input: TokenStream) -> TokenStream {
             }
 
             fn holder<'a>() -> &'a std::sync::OnceLock<Self::Type> {
-                static HOLDER: std::sync::OnceLock<#name> = std::sync::OnceLock::new();
+                static HOLDER: std::sync::OnceLock<<#name as BeanFactory>::Bean> = std::sync::OnceLock::new();
                 &HOLDER
             }
         }

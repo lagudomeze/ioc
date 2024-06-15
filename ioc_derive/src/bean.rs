@@ -9,7 +9,7 @@ pub(crate) enum FieldAttribute {
 impl FieldAttribute {
     pub fn from_attributes(attrs: &[Attribute]) -> Result<Self, syn::Error> {
         for attr in attrs {
-            if attr.path().is_ident("bean") {
+            if attr.path().is_ident("inject") {
                 if let Meta::Path(_) = attr.meta {
                     return Ok(FieldAttribute::Ref(None));
                 } else {

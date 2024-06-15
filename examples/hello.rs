@@ -1,7 +1,5 @@
 // examples/hello.rs
 
-use std::sync::OnceLock;
-
 use ioc::{Bean, run};
 use ioc_core::{BeanFactory, Context};
 
@@ -22,6 +20,8 @@ struct A {
     _s: S,
 }
 
+#[derive(Bean)]
+#[custom_factory]
 struct AnotherBeanA;
 
 impl BeanFactory for AnotherBeanA {
@@ -35,25 +35,15 @@ impl BeanFactory for AnotherBeanA {
     }
 }
 
-impl Bean for AnotherBeanA {
-    type Type = A;
-    type Factory = AnotherBeanA;
-
-    fn holder<'a>() -> &'a OnceLock<Self::Type> {
-        static HOLDER: OnceLock<A> = OnceLock::new();
-        &HOLDER
-    }
-}
-
 #[derive(Bean)]
 struct B {
-    #[bean]
+    #[inject]
     _a: &'static A,
-    #[bean(crate::A)]
+    #[inject(crate::A)]
     _a0: &'static A,
-    #[bean()]
+    #[inject()]
     _a1: &'static A,
-    #[bean(AnotherBeanA)]
+    #[inject(AnotherBeanA)]
     _a2: &'static A,
 }
 fn main() -> anyhow::Result<()> {
