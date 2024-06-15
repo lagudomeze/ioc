@@ -1,6 +1,6 @@
 use linkme::distributed_slice;
 
-pub use ioc_core::{Bean, BeanFactory, Config, Context, Result, IocError};
+pub use ioc_core::{Bean, BeanFactory, Config, Context, IocError, Result};
 pub use ioc_derive::{run, Bean};
 pub use linkme;
 

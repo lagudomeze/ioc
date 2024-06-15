@@ -10,3 +10,4 @@ edition = "2021"
 log = { workspace = true }
 thiserror = { workspace = true }
 cfg-rs = { workspace = true }
+anyhow = { workspace = true }
