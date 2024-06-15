@@ -32,14 +32,14 @@ pub struct Context {
 }
 
 pub trait BeanFactory {
-    type Bean: Bean + Sized;
+    type Bean: Sized;
 
     fn build(ctx: &mut Context) -> crate::Result<Self::Bean>;
 }
 
 pub struct NeverFactory<T>(std::marker::PhantomData<T>);
 
-impl<T> BeanFactory for NeverFactory<T> where T: Bean + Sized {
+impl<T> BeanFactory for NeverFactory<T> where T: Sized {
     type Bean = T;
 
     fn build(_: &mut Context) -> crate::Result<Self::Bean> {
