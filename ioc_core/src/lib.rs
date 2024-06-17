@@ -10,11 +10,9 @@ pub use config::{
     Config
 };
 pub use error::{IocError, Result};
-pub use init::BeanId;
 
 pub(crate) mod bean;
 
 mod error;
-mod init;
 mod config;
 
