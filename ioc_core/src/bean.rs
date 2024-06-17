@@ -8,38 +8,60 @@ use log::debug;
 use crate::config::Config;
 use crate::IocError;
 
+// The `BeanId` struct is used to uniquely identify beans within the IoC container.
+// It contains a static string slice as the bean's name and a `TypeId` for the bean's type.
 #[derive(Debug, Hash, Eq, PartialEq, Copy, Clone)]
 pub struct BeanId {
+    /// The name of the bean, used as a human-readable identifier.
     pub name: &'static str,
+    /// The `TypeId` of the bean's type, used to ensure type safety in the container.
     pub type_id: TypeId,
 }
 
+// The `BeanSpec` struct defines the specification of a bean, which includes its identifier,
+// type name, and a drop function that is called when the bean is being destroyed.
 #[derive(Debug, Copy, Clone)]
 pub struct BeanSpec {
+    /// The unique identifier for the bean.
     pub bean_id: BeanId,
+    /// The type name of the bean, primarily for debugging purposes.
     pub type_name: &'static str,
+    /// A function that will be called to perform any necessary cleanup when the bean is destroyed.
     pub drop: fn()
 }
 
+/// The `Context` struct represents the IoC container's context, managing bean lifecycle, dependencies, and configuration.
 pub struct Context {
+    /// The configuration settings for the IoC container.
     pub(crate) config: Config,
 
+    /// A list of beans that are ready to be injected into other beans.
     ready_beans: Vec<BeanSpec>,
+    /// A stack of beans that are pending initialization.
     pending_bean_stack: VecDeque<BeanSpec>,
 
+    /// A set of identifiers for beans that are currently ready.
     ready_bean_ids: HashSet<BeanId>,
+    /// A set of identifiers for beans that are currently pending.
     pending_bean_ids: HashSet<BeanId>,
 }
 
+/// The `BeanFactory` trait defines the contract for creating an instance of a bean.
 pub trait BeanFactory {
+    /// The type of bean that will be created by this factory.
     type Bean;
 
+    /// Constructs an instance of the bean using the provided context.
     fn build(ctx: &mut Context) -> crate::Result<Self::Bean>;
 }
 
+/// The `Bean` trait extends `BeanFactory` with additional functionality for managing bean lifecycle within the IoC container.
 pub trait Bean: BeanFactory<Bean: 'static + Sized> {
+
+    /// Returns a reference to the holder that contains the singleton instance of this bean.
     fn holder<'a>() -> &'a OnceLock<Self::Bean>;
 
+    /// Attempts to retrieve a reference to the bean instance, returning an error if the bean is not yet ready.
     fn try_get<'a>() -> crate::Result<&'a Self::Bean> {
         Self::holder()
             .get()
@@ -49,10 +71,10 @@ pub trait Bean: BeanFactory<Bean: 'static + Sized> {
     }
 
     fn get<'a>() -> &'a Self::Bean {
-        //todo
-        Self::try_get().expect("")
+        Self::try_get().expect("Failed to get bean from context")
     }
 
+    /// Initializes the bean in the context, ensuring it is ready for injection.
     fn init<'a>(ctx: &mut Context) -> crate::Result<&'a Self::Bean>
     where
         Self: Sized,
@@ -60,12 +82,15 @@ pub trait Bean: BeanFactory<Bean: 'static + Sized> {
         ctx.get_or_init::<Self>()
     }
 
+    /// Performs any necessary cleanup when the bean is being destroyed.
     fn destroy(_product: &Self::Bean) {}
 
+    /// Returns the name of the bean, which is used for identification within the IoC container.
     fn name() -> &'static str {
         Self::bean_type_name()
     }
 
+    /// Returns a unique identifier for the bean based on its type.
     fn bean_id() -> BeanId {
         let name = Self::name();
         let type_id = TypeId::of::<Self::Bean>();
@@ -75,6 +100,7 @@ pub trait Bean: BeanFactory<Bean: 'static + Sized> {
         }
     }
 
+    /// Returns the specification for this bean, including its identifier and type name.
     fn spec() -> BeanSpec {
         let bean_id = Self::bean_id();
         let type_name: &str = Self::bean_type_name();
@@ -91,28 +117,13 @@ pub trait Bean: BeanFactory<Bean: 'static + Sized> {
         }
     }
 
+    /// Returns the type name of the bean as a static string slice.
     fn bean_type_name<'a>() -> &'a str {
         type_name::<Self::Bean>()
     }
 }
 
 impl Context {
-    fn pending(&mut self, bean_definition: &BeanSpec) {
-        self.pending_bean_ids.insert(bean_definition.bean_id.clone());
-        self.pending_bean_stack.push_back(bean_definition.clone());
-    }
-
-    fn remove_pending(&mut self, bean_definition: &BeanSpec) {
-        if let Some(last) = self.pending_bean_stack.pop_back() {
-            if bean_definition.bean_id.eq(&last.bean_id) {
-                self.pending_bean_ids.remove(&last.bean_id);
-            } else {
-                panic!("some fatal error");
-            }
-        } else {
-            panic!("some fatal error");
-        }
-    }
 
     pub fn new(config: Config) -> Self {
         Self {
@@ -124,42 +135,65 @@ impl Context {
         }
     }
 
-    pub fn init<B>(&mut self, bean: B::Bean) -> Option<B::Bean>
-    where
-        B: Bean,
-    {
-        let spec = B::spec();
-        if self.ready_bean_ids.contains(&spec.bean_id) {
-            None
-        } else {
-            B::holder().set(bean).err()
-        }
-    }
-
-    pub fn get_or_init<'a, B: Bean>(&mut self) -> crate::Result<&'a B::Bean> {
-        let spec = B::spec();
-        if self.ready_bean_ids.contains(&spec.bean_id) {
-            B::try_get()
-        } else {
-            if self.pending_bean_ids.contains(&spec.bean_id) {
-                //todo log?
-                return Err(IocError::CircularDependency);
-            } else {
-                self.pending(&spec);
-                let holder = B::holder();
-                let result = holder.get_or_try_init(|| B::build(self));
-                self.remove_pending(&spec);
-                if result.is_ok() {
-                    self.ready_bean_ids.insert(spec.bean_id.clone());
-                    self.ready_beans.push(spec);
-                }
-                return result;
-            }
-        }
-    }
-
     pub fn get_config<T: FromConfig>(&self, key: &str) -> crate::Result<T> {
         Ok(self.config.source.get(key)?)
+    }
+
+    /// Attempts to retrieve or initialize a bean instance of type `B` within the IoC container.
+    /// This method ensures that all dependencies are resolved and the bean is ready for use.
+    /// It also utilizes a cache to quickly check for circular dependencies, returning an error if one is detected.
+    pub fn get_or_init<'a, B: Bean>(&mut self) -> crate::Result<&'a B::Bean> {
+        let spec = B::spec();
+
+        // Check if the bean is already initialized and return it if so.
+        if self.ready_bean_ids.contains(&spec.bean_id) {
+            return B::try_get();
+        }
+
+        // Use the cache to detect potential circular dependencies by checking if the bean
+        // is currently in the process of being initialized.
+        if self.pending_bean_ids.contains(&spec.bean_id) {
+            return Err(IocError::CircularDependency);
+        }
+
+        // Mark the bean as being initialized by adding it to the cache (set).
+        self.pending(&spec);
+
+        // The holder's `get_or_try_init` method will attempt to build the bean if it's not already initialized.
+        let holder = B::holder();
+        let result = holder.get_or_try_init(|| B::build(self));
+
+        // Remove the bean from the initialization stack regardless of the build outcome.
+        self.remove_pending(&spec);
+
+        // If initialization was successful, add the bean to the ready list.
+        if result.is_ok() {
+            self.ready_bean_ids.insert(spec.bean_id);
+            self.ready_beans.push(spec);
+        }
+
+        result
+    }
+
+    /// Adds the bean definition to the cache, indicating that it is currently being initialized.
+    fn pending(&mut self, bean_definition: &BeanSpec) {
+        self.pending_bean_ids.insert(bean_definition.bean_id.clone());
+        self.pending_bean_stack.push_back(bean_definition.clone());
+    }
+
+    /// Removes a bean from the initialization stack and the cache, updating the state after initialization attempt.
+    fn remove_pending(&mut self, bean_definition: &BeanSpec) {
+        if let Some(last) = self.pending_bean_stack.pop_back() {
+            if last.bean_id == bean_definition.bean_id {
+                self.pending_bean_ids.remove(&last.bean_id);
+            } else {
+                // Handle error: the stack order is corrupted.
+                panic!("Initialization stack order corrupted");
+            }
+        } else {
+            // Handle error: the stack is empty when expected to have an item.
+            panic!("Initialization stack is unexpectedly empty");
+        }
     }
 }
 
