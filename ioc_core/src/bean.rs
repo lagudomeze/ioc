@@ -32,60 +32,43 @@ pub struct Context {
 }
 
 pub trait BeanFactory {
-    type Bean: Sized;
+    type Bean;
 
     fn build(ctx: &mut Context) -> crate::Result<Self::Bean>;
 }
 
-pub struct NeverFactory<T>(std::marker::PhantomData<T>);
+pub trait Bean: BeanFactory<Bean: 'static + Sized> {
+    fn holder<'a>() -> &'a OnceLock<Self::Bean>;
 
-impl<T> BeanFactory for NeverFactory<T> where T: Sized {
-    type Bean = T;
-
-    fn build(_: &mut Context) -> crate::Result<Self::Bean> {
-        panic!("Your init it direct by Context's init method!")
-    }
-}
-
-impl<T> NeverFactory<T> {
-    pub const fn new() -> Self {
-        Self(std::marker::PhantomData)
-    }
-}
-
-pub trait Bean {
-    type Type: 'static + Sized;
-    type Factory: BeanFactory<Bean=Self::Type>;
-
-    fn holder<'a>() -> &'a OnceLock<Self::Type>;
-
-    fn try_get<'a>() -> crate::Result<&'a Self::Type> {
-        let type_name: &str = type_name::<Self::Type>();
+    fn try_get<'a>() -> crate::Result<&'a Self::Bean> {
         Self::holder()
             .get()
             .ok_or(IocError::DependNotReady {
-                type_name
+                type_name: Self::bean_type_name()
             })
     }
 
-    fn get<'a>() -> &'a Self::Type {
+    fn get<'a>() -> &'a Self::Bean {
         //todo
         Self::try_get().expect("")
     }
 
-    fn init<'a>(ctx: &mut Context) -> crate::Result<&'a Self::Type> where Self: Sized {
+    fn init<'a>(ctx: &mut Context) -> crate::Result<&'a Self::Bean>
+    where
+        Self: Sized,
+    {
         ctx.get_or_init::<Self>()
     }
 
-    fn destroy(_product: &Self::Type) {}
+    fn destroy(_product: &Self::Bean) {}
 
     fn name() -> &'static str {
-        type_name::<Self::Type>()
+        Self::bean_type_name()
     }
 
     fn bean_id() -> BeanId {
         let name = Self::name();
-        let type_id = TypeId::of::<Self::Type>();
+        let type_id = TypeId::of::<Self::Bean>();
         BeanId {
             name,
             type_id,
@@ -94,7 +77,7 @@ pub trait Bean {
 
     fn spec() -> BeanSpec {
         let bean_id = Self::bean_id();
-        let type_name: &str = type_name::<Self::Type>();
+        let type_name: &str = Self::bean_type_name();
 
         debug!("name:{} type:{type_name} id:{:?}", bean_id.name, bean_id.type_id);
         BeanSpec {
@@ -106,6 +89,10 @@ pub trait Bean {
                 }
             },
         }
+    }
+
+    fn bean_type_name<'a>() -> &'a str {
+        type_name::<Self::Bean>()
     }
 }
 
@@ -137,7 +124,10 @@ impl Context {
         }
     }
 
-    pub fn init<B>(&mut self, bean: B::Type) -> Option<B::Type> where B: Bean {
+    pub fn init<B>(&mut self, bean: B::Bean) -> Option<B::Bean>
+    where
+        B: Bean,
+    {
         let spec = B::spec();
         if self.ready_bean_ids.contains(&spec.bean_id) {
             None
@@ -146,7 +136,7 @@ impl Context {
         }
     }
 
-    pub fn get_or_init<'a, B: Bean>(&mut self) -> crate::Result<&'a B::Type> {
+    pub fn get_or_init<'a, B: Bean>(&mut self) -> crate::Result<&'a B::Bean> {
         let spec = B::spec();
         if self.ready_bean_ids.contains(&spec.bean_id) {
             B::try_get()
@@ -157,7 +147,7 @@ impl Context {
             } else {
                 self.pending(&spec);
                 let holder = B::holder();
-                let result = holder.get_or_try_init(|| B::Factory::build(self));
+                let result = holder.get_or_try_init(|| B::build(self));
                 self.remove_pending(&spec);
                 if result.is_ok() {
                     self.ready_bean_ids.insert(spec.bean_id.clone());
@@ -189,10 +179,8 @@ mod tests {
     }
 
     impl Bean for CfgA {
-        type Type = Self;
-        type Factory = Self;
 
-        fn holder<'a>() -> &'a OnceLock<Self::Type> {
+        fn holder<'a>() -> &'a OnceLock<Self::Bean> {
             static HOLDER: OnceLock<CfgA> = OnceLock::new();
             &HOLDER
         }
@@ -201,7 +189,7 @@ mod tests {
     pub struct A(String);
 
     impl BeanFactory for A {
-        type Bean = A;
+        type Bean = Self;
 
         fn build(ctx: &mut Context) -> crate::Result<Self::Bean> {
             let cfg = ctx.get_or_init::<CfgA>()?;
@@ -210,10 +198,8 @@ mod tests {
     }
 
     impl Bean for A {
-        type Type = Self;
-        type Factory = Self;
 
-        fn holder<'a>() -> &'a OnceLock<Self> {
+        fn holder<'a>() -> &'a OnceLock<Self::Bean> {
             static HOLDER: OnceLock<A> = OnceLock::new();
             &HOLDER
         }
@@ -232,10 +218,8 @@ mod tests {
     }
 
     impl Bean for B {
-        type Type = Self;
-        type Factory = Self;
 
-        fn holder<'a>() -> &'a OnceLock<Self> {
+        fn holder<'a>() -> &'a OnceLock<Self::Bean> {
             static HOLDER: OnceLock<B> = OnceLock::new();
             &HOLDER
         }
@@ -268,6 +252,7 @@ mod tests {
     }
 
     mod dep {
+        use std::assert_matches::assert_matches;
         use std::sync::OnceLock;
 
         use cfg_rs::{Configuration, init_cargo_env};
@@ -275,20 +260,26 @@ mod tests {
         use crate::{Bean, IocError};
         use crate::bean::{BeanFactory, Context};
 
+        #[derive(Debug)]
         pub struct A(String);
 
+        #[derive(Debug)]
         pub struct B(&'static A, String);
 
+        #[derive(Debug)]
         pub struct C(&'static A, &'static B, String);
         #[allow(dead_code)]
+        #[derive(Debug)]
         pub struct D(&'static C, &'static F, String);
         #[allow(dead_code)]
+        #[derive(Debug)]
         pub struct E(&'static D, String);
         #[allow(dead_code)]
+        #[derive(Debug)]
         pub struct F(&'static E, String);
 
         impl BeanFactory for A {
-            type Bean = A;
+            type Bean = Self;
 
             fn build(_: &mut Context) -> crate::Result<Self::Bean> {
                 Ok(A("this is A".to_string()))
@@ -296,10 +287,8 @@ mod tests {
         }
 
         impl Bean for A {
-            type Type = Self;
-            type Factory = Self;
 
-            fn holder<'a>() -> &'a OnceLock<Self::Type> {
+            fn holder<'a>() -> &'a OnceLock<Self::Bean> {
                 static HOLDER: OnceLock<A> = OnceLock::new();
                 &HOLDER
             }
@@ -316,10 +305,8 @@ mod tests {
         }
 
         impl Bean for B {
-            type Type = Self;
-            type Factory = Self;
 
-            fn holder<'a>() -> &'a OnceLock<Self::Type> {
+            fn holder<'a>() -> &'a OnceLock<Self::Bean> {
                 static HOLDER: OnceLock<B> = OnceLock::new();
                 &HOLDER
             }
@@ -336,10 +323,8 @@ mod tests {
         }
 
         impl Bean for C {
-            type Type = Self;
-            type Factory = Self;
 
-            fn holder<'a>() -> &'a OnceLock<Self::Type> {
+            fn holder<'a>() -> &'a OnceLock<Self::Bean> {
                 static HOLDER: OnceLock<C> = OnceLock::new();
                 &HOLDER
             }
@@ -356,10 +341,8 @@ mod tests {
         }
 
         impl Bean for D {
-            type Type = Self;
-            type Factory = Self;
 
-            fn holder<'a>() -> &'a OnceLock<Self::Type> {
+            fn holder<'a>() -> &'a OnceLock<Self::Bean> {
                 static HOLDER: OnceLock<D> = OnceLock::new();
                 &HOLDER
             }
@@ -375,10 +358,8 @@ mod tests {
         }
 
         impl Bean for E {
-            type Type = Self;
-            type Factory = Self;
 
-            fn holder<'a>() -> &'a OnceLock<Self::Type> {
+            fn holder<'a>() -> &'a OnceLock<Self::Bean> {
                 static HOLDER: OnceLock<E> = OnceLock::new();
                 &HOLDER
             }
@@ -394,10 +375,8 @@ mod tests {
         }
 
         impl Bean for F {
-            type Type = Self;
-            type Factory = Self;
 
-            fn holder<'a>() -> &'a OnceLock<Self::Type> {
+            fn holder<'a>() -> &'a OnceLock<Self::Bean> {
                 static HOLDER: OnceLock<F> = OnceLock::new();
                 &HOLDER
             }
@@ -425,9 +404,9 @@ mod tests {
             assert_eq!("this is B", &b.1);
             assert_eq!("this is C", &c.2);
 
-            assert_eq!(Some(IocError::CircularDependency), ctx.get_or_init::<E>().err());
-            assert_eq!(Some(IocError::CircularDependency), ctx.get_or_init::<F>().err());
-            assert_eq!(Some(IocError::CircularDependency), ctx.get_or_init::<D>().err());
+            assert_matches!(ctx.get_or_init::<E>(), Err(IocError::CircularDependency));
+            assert_matches!(ctx.get_or_init::<F>(), Err(IocError::CircularDependency));
+            assert_matches!(ctx.get_or_init::<D>(), Err(IocError::CircularDependency));
 
             Ok(())
         }

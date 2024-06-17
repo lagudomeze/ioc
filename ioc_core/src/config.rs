@@ -1,9 +1,11 @@
 use cfg_rs::{Configuration, FromConfigWithPrefix};
 
-use crate::Bean;
 use crate::bean::{BeanFactory, Context};
 
-impl<C> BeanFactory for C where C: FromConfigWithPrefix + Bean {
+impl<C> BeanFactory for C
+where
+    C: FromConfigWithPrefix,
+{
     type Bean = Self;
 
     fn build(ctx: &mut Context) -> crate::Result<Self::Bean> {
@@ -41,10 +43,7 @@ mod tests {
     }
 
     impl Bean for Test {
-        type Type= Test;
-        type Factory = Test;
-
-        fn holder<'a>() -> &'a OnceLock<Self::Type> {
+        fn holder<'a>() -> &'a OnceLock<Self::Bean> {
             static HOLDER: OnceLock<Test> = OnceLock::new();
             &HOLDER
         }

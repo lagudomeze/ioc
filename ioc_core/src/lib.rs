@@ -1,4 +1,4 @@
-#![feature(once_cell_try)]
+#![feature(once_cell_try, assert_matches)]
 
 pub use bean::{
     Bean,

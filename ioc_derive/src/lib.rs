@@ -185,7 +185,7 @@ pub fn bean_definition(input: TokenStream) -> TokenStream {
     } else {
         quote! {
             impl ::ioc::BeanFactory for #name {
-                type Bean = #name;
+                type Bean = Self;
 
                 fn build(ctx: &mut ::ioc::Context) -> ioc_core::Result<Self::Bean> {
                     Ok(Self::Bean {
@@ -198,17 +198,21 @@ pub fn bean_definition(input: TokenStream) -> TokenStream {
 
     let bean_name = type_attr.name.clone().unwrap_or_else(|| name.to_string());
 
+    let bean_type = if custom_factory {
+        quote! { <#name as BeanFactory>::Bean }
+    } else {
+        quote! { #name }
+    };
+
     let bean_impl = quote! {
         impl ::ioc::Bean for #name {
-            type Type = <#name as ioc::BeanFactory>::Bean;
-            type Factory = Self;
 
             fn name() -> &'static str {
                 #bean_name
             }
 
-            fn holder<'a>() -> &'a std::sync::OnceLock<Self::Type> {
-                static HOLDER: std::sync::OnceLock<<#name as ioc::BeanFactory>::Bean> = std::sync::OnceLock::new();
+            fn holder<'a>() -> &'a std::sync::OnceLock<Self::Bean> {
+                static HOLDER: std::sync::OnceLock<#bean_type> = std::sync::OnceLock::new();
                 &HOLDER
             }
         }
