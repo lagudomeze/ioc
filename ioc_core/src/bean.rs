@@ -45,51 +45,6 @@ impl Debug for BeanSpec {
     }
 }
 
-#[derive(Default, Debug)]
-struct PendingChain {
-    /// A stack of beans that are pending initialization.
-    pending_bean_stack: VecDeque<BeanSpec>,
-    /// A set of identifiers for beans that are currently pending.
-    pending_bean_ids: HashSet<BeanId>,
-}
-
-#[must_use = "ReleaseGuard must be used to release the pending bean when bean init (failure/success)"]
-struct ReleaseGuard {
-    spec: BeanSpec,
-}
-
-impl ReleaseGuard {
-    fn release(self, ctx: &mut PendingChain) -> BeanSpec {
-        let last = ctx.pending_bean_stack
-            .pop_back()
-            .expect("Initialization stack is unexpectedly empty");
-
-        if last.bean_id != self.spec.bean_id {
-            panic!("Initialization stack order corrupted");
-        }
-        ctx.pending_bean_ids.remove(&last.bean_id);
-        debug!("release pending for ready bean spec {:?}! ", last);
-        last
-    }
-}
-
-impl PendingChain {
-    fn pending(&mut self, spec: BeanSpec) -> crate::Result<ReleaseGuard> {
-
-        debug!("pending for spec {:?}", spec);
-        // Check if the bean is currently being initialized and return an error if so.
-        if self.pending_bean_ids.contains(&spec.bean_id) {
-            return Err(IocError::CircularDependency);
-        }
-
-        self.pending_bean_ids.insert(spec.bean_id.clone());
-        self.pending_bean_stack.push_back(spec.clone());
-        Ok(ReleaseGuard {
-            spec
-        })
-    }
-}
-
 /// The `Context` struct represents the IoC container's context, managing bean lifecycle, dependencies, and configuration.
 /// It contains a list of ready beans, a stack of pending beans, and sets of identifiers for ready and pending beans.
 #[derive(Debug)]
@@ -104,7 +59,7 @@ pub struct Context {
     ready_bean_ids: HashSet<BeanId>,
 
     /// A stack of beans that are pending initialization.
-    pending_chain: PendingChain,
+    pending_chain: VecDeque<BeanSpec>,
 }
 
 /// The `BeanFactory` trait defines the contract for creating an instance of a bean.
@@ -236,15 +191,31 @@ impl Context {
 
         // Use the cache to detect potential circular dependencies by checking if the bean
         // is currently in the process of being initialized.
-        let release_guard = self.pending_chain.pending(spec)?;
+        // Check if the bean is currently being initialized and return an error if so.
+        for pending_spec in self.pending_chain.iter() {
+            if spec.bean_id.eq(&pending_spec.bean_id) {
+                return Err(IocError::CircularDependency);
+            }
+        }
+        self.pending_chain.push_back(spec);
+        debug!("bean spec {:?} is pending! ", spec);
 
         // The holder's `get_or_try_init` method will attempt to build the bean if it's not already initialized.
         let result = B::holder().get_or_try_init(|| B::build(self));
 
-        let ready_bean = release_guard.release(&mut self.pending_chain);
+        let ready_bean = self.pending_chain
+            .pop_back()
+            .expect("Initialization stack is unexpectedly empty");
+
+        if ready_bean.bean_id != spec.bean_id {
+            panic!("Initialization stack order corrupted");
+        }
+
+
         if result.is_ok() {
             self.ready_beans.push(ready_bean);
             self.ready_bean_ids.insert(ready_bean.bean_id);
+            debug!("bean spec {:?} is ready! ", ready_bean);
         }
 
         result
