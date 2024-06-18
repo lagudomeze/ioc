@@ -3,6 +3,7 @@ use cfg_rs::{Configuration, FromConfigWithPrefix};
 
 use crate::bean::{BeanFactory, Context};
 
+/// BeanFactory for Configuration which implements `cfg_rs::FromConfigWithPrefix`
 impl<C> BeanFactory for C
 where
     C: FromConfigWithPrefix,
@@ -14,7 +15,9 @@ where
     }
 }
 
+/// Ioc Context Configuration, just simply wrap `cfg_rs::Configuration`
 pub struct Config {
+    /// source of configuration
     pub(crate) source: Configuration,
 }
 
@@ -26,6 +29,7 @@ impl Debug for Config {
     }
 }
 
+/// Convert Configuration to Config
 impl From<Configuration> for Config {
     fn from(source: Configuration) -> Self {
         Self {

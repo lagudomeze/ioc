@@ -40,6 +40,7 @@ impl Debug for BeanSpec {
             .field("name", &self.bean_id.name)
             .field("type_name", &self.type_name)
             .field("factory_name", &self.factory_name)
+            .field("drop", &"function")
             .finish()
     }
 }
