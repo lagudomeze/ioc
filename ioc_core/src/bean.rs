@@ -242,9 +242,10 @@ impl Context {
         let result = B::holder().get_or_try_init(|| B::build(self));
 
         let ready_bean = release_guard.release(&mut self.pending_chain);
-
-        self.ready_beans.push(ready_bean);
-        self.ready_bean_ids.insert(ready_bean.bean_id);
+        if result.is_ok() {
+            self.ready_beans.push(ready_bean);
+            self.ready_bean_ids.insert(ready_bean.bean_id);
+        }
 
         result
     }
