@@ -11,8 +11,7 @@ pub use config::{
 };
 pub use error::{IocError, Result};
 
-pub(crate) mod bean;
-
+mod bean;
 mod error;
 mod config;
 

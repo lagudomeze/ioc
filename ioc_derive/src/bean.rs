@@ -10,12 +10,13 @@ impl FieldAttribute {
     pub fn from_attributes(attrs: &[Attribute]) -> Result<Self, syn::Error> {
         for attr in attrs {
             if attr.path().is_ident("inject") {
-                if let Meta::Path(_) = attr.meta {
-                    return Ok(FieldAttribute::Ref(None));
+                let maybe_type = if let Meta::Path(_) = attr.meta {
+                    None
                 } else {
                     let attr = attr.parse_args::<BeanRef>()?;
-                    return Ok(FieldAttribute::Ref(attr.0));
-                }
+                    attr.0
+                };
+                return Ok(FieldAttribute::Ref(maybe_type));
             } else if attr.path().is_ident("value") {
                 let attr = attr.parse_args::<ConfigAttr>()?;
                 return Ok(FieldAttribute::Config(attr.0));
