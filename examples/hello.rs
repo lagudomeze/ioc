@@ -3,6 +3,18 @@
 use ioc::{Bean, run};
 use ioc_core::{BeanFactory, Context};
 
+#[derive(Bean)]
+struct B {
+    #[inject]
+    _a: &'static A,
+    #[inject(crate::A)]
+    _a0: &'static A,
+    #[inject()]
+    _a1: &'static A,
+    #[inject(AnotherBeanA)]
+    _a2: &'static A,
+}
+
 #[allow(dead_code)]
 struct S(&'static str);
 
@@ -33,18 +45,6 @@ impl BeanFactory for AnotherBeanA {
             _s: S("hihi"),
         })
     }
-}
-
-#[derive(Bean)]
-struct B {
-    #[inject]
-    _a: &'static A,
-    #[inject(crate::A)]
-    _a0: &'static A,
-    #[inject()]
-    _a1: &'static A,
-    #[inject(AnotherBeanA)]
-    _a2: &'static A,
 }
 fn main() -> anyhow::Result<()> {
     run!(dir = "./", profile = "dev");

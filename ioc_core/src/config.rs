@@ -1,3 +1,4 @@
+use std::fmt::{Debug, Formatter};
 use cfg_rs::{Configuration, FromConfigWithPrefix};
 
 use crate::bean::{BeanFactory, Context};
@@ -15,6 +16,14 @@ where
 
 pub struct Config {
     pub(crate) source: Configuration,
+}
+
+impl Debug for Config {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Config")
+            .field("source", &"Configuration")
+            .finish()
+    }
 }
 
 impl From<Configuration> for Config {

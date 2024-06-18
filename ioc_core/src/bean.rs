@@ -1,9 +1,11 @@
 use std::any::{type_name, TypeId};
 use std::collections::{HashSet, VecDeque};
+use std::fmt::{Debug, Formatter};
+use std::hash::Hash;
 use std::sync::OnceLock;
 
 use cfg_rs::FromConfig;
-use log::debug;
+use log::{debug, trace};
 
 use crate::config::Config;
 use crate::IocError;
@@ -20,30 +22,88 @@ pub struct BeanId {
 
 // The `BeanSpec` struct defines the specification of a bean, which includes its identifier,
 // type name, and a drop function that is called when the bean is being destroyed.
-#[derive(Debug, Copy, Clone)]
+#[derive(Copy, Clone)]
 pub struct BeanSpec {
     /// The unique identifier for the bean.
     pub bean_id: BeanId,
     /// The type name of the bean, primarily for debugging purposes.
     pub type_name: &'static str,
+    /// The name of the factory that will be used to create the bean.
+    pub factory_name: &'static str,
     /// A function that will be called to perform any necessary cleanup when the bean is destroyed.
     pub drop: fn()
 }
 
+impl Debug for BeanSpec {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("BeanSpec")
+            .field("name", &self.bean_id.name)
+            .field("type_name", &self.type_name)
+            .field("factory_name", &self.factory_name)
+            .finish()
+    }
+}
+
+#[derive(Default, Debug)]
+struct PendingChain {
+    /// A stack of beans that are pending initialization.
+    pending_bean_stack: VecDeque<BeanSpec>,
+    /// A set of identifiers for beans that are currently pending.
+    pending_bean_ids: HashSet<BeanId>,
+}
+
+#[must_use = "ReleaseGuard must be used to release the pending bean when bean init (failure/success)"]
+struct ReleaseGuard {
+    spec: BeanSpec,
+}
+
+impl ReleaseGuard {
+    fn release(self, ctx: &mut PendingChain) -> BeanSpec {
+        let last = ctx.pending_bean_stack
+            .pop_back()
+            .expect("Initialization stack is unexpectedly empty");
+
+        if last.bean_id != self.spec.bean_id {
+            panic!("Initialization stack order corrupted");
+        }
+        ctx.pending_bean_ids.remove(&last.bean_id);
+        debug!("release pending for ready bean spec {:?}! ", last);
+        last
+    }
+}
+
+impl PendingChain {
+    fn pending(&mut self, spec: BeanSpec) -> crate::Result<ReleaseGuard> {
+
+        debug!("pending for spec {:?}", spec);
+        // Check if the bean is currently being initialized and return an error if so.
+        if self.pending_bean_ids.contains(&spec.bean_id) {
+            return Err(IocError::CircularDependency);
+        }
+
+        self.pending_bean_ids.insert(spec.bean_id.clone());
+        self.pending_bean_stack.push_back(spec.clone());
+        Ok(ReleaseGuard {
+            spec
+        })
+    }
+}
+
 /// The `Context` struct represents the IoC container's context, managing bean lifecycle, dependencies, and configuration.
+/// It contains a list of ready beans, a stack of pending beans, and sets of identifiers for ready and pending beans.
+#[derive(Debug)]
 pub struct Context {
     /// The configuration settings for the IoC container.
     pub(crate) config: Config,
 
     /// A list of beans that are ready to be injected into other beans.
     ready_beans: Vec<BeanSpec>,
-    /// A stack of beans that are pending initialization.
-    pending_bean_stack: VecDeque<BeanSpec>,
 
-    /// A set of identifiers for beans that are currently ready.
+    /// A set of identifiers for beans that are ready to be injected into other beans.
     ready_bean_ids: HashSet<BeanId>,
-    /// A set of identifiers for beans that are currently pending.
-    pending_bean_ids: HashSet<BeanId>,
+
+    /// A stack of beans that are pending initialization.
+    pending_chain: PendingChain,
 }
 
 /// The `BeanFactory` trait defines the contract for creating an instance of a bean.
@@ -104,21 +164,21 @@ pub trait Bean: BeanFactory<Bean: 'static + Sized> {
     fn spec() -> BeanSpec {
         let bean_id = Self::bean_id();
         let type_name: &str = Self::bean_type_name();
-
-        debug!("build spec
-                    factory: {}
-                    name:    {}
-                    type:    {type_name}",
-            std::any::type_name::<Self>(), bean_id.name);
-        BeanSpec {
+        let factory_name = std::any::type_name::<Self>();
+        let spec = BeanSpec {
             bean_id,
             type_name,
+            factory_name,
             drop: || {
                 if let Some(r) = Self::holder().get() {
                     Self::destroy(r);
                 }
             },
-        }
+        };
+
+        trace!("build spec {:?}", spec);
+
+        spec
     }
 
     /// Returns the type name of the bean as a static string slice.
@@ -138,30 +198,12 @@ impl Drop for DropGuard {
         debug!("Starting cleanup of beans.");
         // Iterate and clean up all beans to ensure resources are properly released.
         for bean_spec in self.ready_beans.iter().rev() {
-            debug!("Cleaning up bean: {}", bean_spec.type_name);
+            debug!("Cleaning up bean: {:?}", bean_spec);
             // Call the drop function for each bean to perform cleanup.
             (bean_spec.drop)();
         }
         // Perform any other necessary cleanup here.
         debug!("Cleanup of beans completed.");
-    }
-}
-
-struct PendingBeanGuard<'a> {
-    ctx: &'a mut Context,
-    spec: &'a BeanSpec,
-}
-
-impl Drop for PendingBeanGuard<'_> {
-    fn drop(&mut self) {
-        let last = self.ctx.pending_bean_stack
-            .pop_back()
-            .expect("Initialization stack is unexpectedly empty");
-
-        if last.bean_id != self.spec.bean_id {
-            panic!("Initialization stack order corrupted");
-        }
-        self.ctx.pending_bean_ids.remove(&last.bean_id);
     }
 }
 
@@ -171,9 +213,8 @@ impl Context {
         Self {
             config,
             ready_beans: Default::default(),
-            pending_bean_stack: Default::default(),
             ready_bean_ids: Default::default(),
-            pending_bean_ids: Default::default(),
+            pending_chain: Default::default(),
         }
     }
 
@@ -194,31 +235,22 @@ impl Context {
 
         // Use the cache to detect potential circular dependencies by checking if the bean
         // is currently in the process of being initialized.
-        if self.pending_bean_ids.contains(&spec.bean_id) {
-            return Err(IocError::CircularDependency);
-        }
-
-        // Mark the bean as being initialized by adding it to the cache (set).
-        let _guard = self.pending(&spec);
+        let release_guard = self.pending_chain.pending(spec)?;
 
         // The holder's `get_or_try_init` method will attempt to build the bean if it's not already initialized.
-        B::holder().get_or_try_init(|| B::build(self))
+        let result = B::holder().get_or_try_init(|| B::build(self));
+
+        let ready_bean = release_guard.release(&mut self.pending_chain);
+
+        self.ready_beans.push(ready_bean);
+        self.ready_bean_ids.insert(ready_bean.bean_id);
+
+        result
     }
 
     pub fn complete(self) -> DropGuard {
         DropGuard {
             ready_beans: self.ready_beans
-        }
-    }
-
-
-    /// Adds the bean definition to the cache, indicating that it is currently being initialized.
-    fn pending(&mut self, spec: &BeanSpec) -> PendingBeanGuard {
-        self.pending_bean_ids.insert(spec.bean_id.clone());
-        self.pending_bean_stack.push_back(spec.clone());
-        PendingBeanGuard {
-            ctx: self,
-            spec,
         }
     }
 }
