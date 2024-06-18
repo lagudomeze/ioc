@@ -105,7 +105,11 @@ pub trait Bean: BeanFactory<Bean: 'static + Sized> {
         let bean_id = Self::bean_id();
         let type_name: &str = Self::bean_type_name();
 
-        debug!("name:{} type:{type_name} id:{:?}", bean_id.name, bean_id.type_id);
+        debug!("build spec
+                    factory: {}
+                    name:    {}
+                    type:    {type_name}",
+            std::any::type_name::<Self>(), bean_id.name);
         BeanSpec {
             bean_id,
             type_name,
@@ -120,6 +124,26 @@ pub trait Bean: BeanFactory<Bean: 'static + Sized> {
     /// Returns the type name of the bean as a static string slice.
     fn bean_type_name<'a>() -> &'a str {
         type_name::<Self::Bean>()
+    }
+}
+
+// `DropGuard` is responsible for the cleanup logic of the IoC container.
+pub struct DropGuard {
+    ready_beans: Vec<BeanSpec>,
+}
+
+impl Drop for DropGuard {
+    /// Automatically performs the cleanup of all registered beans when the `DropGuard` instance is dropped.
+    fn drop(&mut self) {
+        debug!("Starting cleanup of beans.");
+        // Iterate and clean up all beans to ensure resources are properly released.
+        for bean_spec in self.ready_beans.iter().rev() {
+            debug!("Cleaning up bean: {}", bean_spec.type_name);
+            // Call the drop function for each bean to perform cleanup.
+            (bean_spec.drop)();
+        }
+        // Perform any other necessary cleanup here.
+        debug!("Cleanup of beans completed.");
     }
 }
 
@@ -173,6 +197,12 @@ impl Context {
         }
 
         result
+    }
+
+    pub fn complete(self) -> DropGuard {
+        DropGuard {
+            ready_beans: self.ready_beans
+        }
     }
 
     /// Adds the bean definition to the cache, indicating that it is currently being initialized.

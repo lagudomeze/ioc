@@ -14,6 +14,7 @@ pub fn run_app(config: Config) -> Result<()> {
     for collect in BEAN_COLLECTOR {
         collect(&mut ctx)?;
     }
+    let _ = ctx.complete();
 
     Ok(())
 }

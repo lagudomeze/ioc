@@ -51,7 +51,7 @@ impl CargoToml {
         toml::from_str(&cargo_toml_raw).expect("Read Cargo.toml failed")
     }
 
-    pub(crate) fn mod_names<'a>(&'a self) -> impl Iterator<Item = &'a str> {
+    pub(crate) fn mod_names(&self) -> impl Iterator<Item=&str> {
         self.dependencies
             .iter()
             .filter(|(_, v)| v.auto_ioc())
