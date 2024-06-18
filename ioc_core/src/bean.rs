@@ -147,6 +147,24 @@ impl Drop for DropGuard {
     }
 }
 
+struct PendingBeanGuard<'a> {
+    ctx: &'a mut Context,
+    spec: &'a BeanSpec,
+}
+
+impl Drop for PendingBeanGuard<'_> {
+    fn drop(&mut self) {
+        let last = self.ctx.pending_bean_stack
+            .pop_back()
+            .expect("Initialization stack is unexpectedly empty");
+
+        if last.bean_id != self.spec.bean_id {
+            panic!("Initialization stack order corrupted");
+        }
+        self.ctx.pending_bean_ids.remove(&last.bean_id);
+    }
+}
+
 impl Context {
 
     pub fn new(config: Config) -> Self {
@@ -181,22 +199,10 @@ impl Context {
         }
 
         // Mark the bean as being initialized by adding it to the cache (set).
-        self.pending(&spec);
+        let _guard = self.pending(&spec);
 
         // The holder's `get_or_try_init` method will attempt to build the bean if it's not already initialized.
-        let holder = B::holder();
-        let result = holder.get_or_try_init(|| B::build(self));
-
-        // Remove the bean from the initialization stack regardless of the build outcome.
-        self.remove_pending(&spec);
-
-        // If initialization was successful, add the bean to the ready list.
-        if result.is_ok() {
-            self.ready_bean_ids.insert(spec.bean_id);
-            self.ready_beans.push(spec);
-        }
-
-        result
+        B::holder().get_or_try_init(|| B::build(self))
     }
 
     pub fn complete(self) -> DropGuard {
@@ -205,24 +211,14 @@ impl Context {
         }
     }
 
-    /// Adds the bean definition to the cache, indicating that it is currently being initialized.
-    fn pending(&mut self, bean_definition: &BeanSpec) {
-        self.pending_bean_ids.insert(bean_definition.bean_id.clone());
-        self.pending_bean_stack.push_back(bean_definition.clone());
-    }
 
-    /// Removes a bean from the initialization stack and the cache, updating the state after initialization attempt.
-    fn remove_pending(&mut self, bean_definition: &BeanSpec) {
-        if let Some(last) = self.pending_bean_stack.pop_back() {
-            if last.bean_id == bean_definition.bean_id {
-                self.pending_bean_ids.remove(&last.bean_id);
-            } else {
-                // Handle error: the stack order is corrupted.
-                panic!("Initialization stack order corrupted");
-            }
-        } else {
-            // Handle error: the stack is empty when expected to have an item.
-            panic!("Initialization stack is unexpectedly empty");
+    /// Adds the bean definition to the cache, indicating that it is currently being initialized.
+    fn pending(&mut self, spec: &BeanSpec) -> PendingBeanGuard {
+        self.pending_bean_ids.insert(spec.bean_id.clone());
+        self.pending_bean_stack.push_back(spec.clone());
+        PendingBeanGuard {
+            ctx: self,
+            spec,
         }
     }
 }
