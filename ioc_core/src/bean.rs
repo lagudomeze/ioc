@@ -154,7 +154,7 @@ impl Drop for DropGuard {
         debug!("Starting cleanup of beans.");
         // Iterate and clean up all beans to ensure resources are properly released.
         for bean_spec in self.ready_beans.iter().rev() {
-            debug!("Cleaning up bean: {:?}", bean_spec);
+            debug!("bean {:?} is cleaning", bean_spec);
             // Call the drop function for each bean to perform cleanup.
             (bean_spec.drop)();
         }
@@ -198,7 +198,7 @@ impl Context {
             }
         }
         self.pending_chain.push_back(spec);
-        debug!("bean spec {:?} is pending! ", spec);
+        debug!("bean {:?} is pending! ", spec);
 
         // The holder's `get_or_try_init` method will attempt to build the bean if it's not already initialized.
         let result = B::holder().get_or_try_init(|| B::build(self));
@@ -215,7 +215,7 @@ impl Context {
         if result.is_ok() {
             self.ready_beans.push(ready_bean);
             self.ready_bean_ids.insert(ready_bean.bean_id);
-            debug!("bean spec {:?} is ready! ", ready_bean);
+            debug!("bean {:?} is ready! ", ready_bean);
         }
 
         result
