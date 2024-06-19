@@ -1,3 +1,5 @@
+//! ## ioc - A simple dependency injection library for Rust
+//! `ioc` is a dependency injection library that provides a simple way to manage and resolve dependencies.
 //! ## The [`run!`](run) macro
 //!
 //! Used to run the application, initialize all beans, and complete dependency injection.
@@ -69,7 +71,6 @@
 pub use linkme;
 use linkme::distributed_slice;
 
-/// `ioc` is a dependency injection library that provides a simple way to manage and resolve dependencies.
 pub use ioc_core::{
     AppConfigLoader,
     AppName,
@@ -89,14 +90,15 @@ pub use ioc_derive::{Bean, preload_mods};
 macro_rules! run {
     ($($field:ident = $value:expr),* $(,)?) => {
         use ioc::{preload_mods, AppConfigLoader, run_app};
-        preload_mods!();
-        let config = AppConfigLoader {
+        let loader = AppConfigLoader {
             $(
+
                 $field: $value.into(),
             )*
             ..Default::default()
-        }.load()?;
-        run_app(config)?;
+        };
+        preload_mods!();
+        run_app(loader)?;
     }
 }
 /// This is a global-distributed slice used to collect all bean factory functions.
@@ -108,14 +110,15 @@ pub static BEAN_COLLECTOR: [fn(&mut Context) -> Result<()>] = [..];
 ///
 /// # Parameters
 ///
-/// * `config` - A configuration object containing the application's configuration information.
+/// * `loader` - A configuration [loader](AppConfigLoader) to load [configuration](Config).
 ///
 /// # Returns
 ///
 /// If the application runs successfully, it returns `Ok(())`. If an error occurs during the run, it returns `Err(IocError)`.
-pub fn run_app(config: Config) -> Result<()> {
+pub fn run_app(loader: AppConfigLoader) -> Result<()> {
     env_logger::init();
 
+    let  config = loader.load()?;
     let mut ctx = Context::new(config);
     for collect in BEAN_COLLECTOR {
         collect(&mut ctx)?;

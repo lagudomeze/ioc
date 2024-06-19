@@ -25,7 +25,7 @@ pub fn preload_mods(_: TokenStream) -> TokenStream {
     let mut mods = vec![];
 
     for name in toml.mod_names() {
-        // mod name may contains "-", in `use` statment nead replace it to
+        // mod name may contain "-", in `use` statement need replace it to
         let mod_name = name.replace("-", "_");
         mods.push(format_ident!("{}", mod_name));
         mod_names.push(mod_name);
