@@ -67,6 +67,8 @@
 //! ```
 
 
+mod log;
+
 #[doc(hidden)]
 pub use linkme::{self, *};
 
@@ -115,7 +117,7 @@ pub static BEAN_COLLECTOR: [fn(&mut Context) -> Result<()>] = [..];
 ///
 /// If the application runs successfully, it returns `Ok(())`. If an error occurs during the run, it returns `Err(IocError)`.
 pub fn run_app(loader: AppConfigLoader) -> Result<()> {
-    env_logger::init();
+    log::log_init()?;
 
     let  config = loader.load()?;
     let mut ctx = Context::new(config);
