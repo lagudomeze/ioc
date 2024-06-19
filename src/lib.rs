@@ -67,7 +67,7 @@
 //! ```
 
 
-mod log;
+pub mod log;
 
 #[doc(hidden)]
 pub use linkme::{self, *};
@@ -85,12 +85,17 @@ pub use ioc_core::{
     Result,
 };
 pub use ioc_derive::{Bean, preload_mods};
+pub use log::log_init;
 
 /// See module level documentation for more information.
 #[macro_export]
 macro_rules! run {
     ($($field:ident = $value:expr),* $(,)?) => {
-        use ioc::{preload_mods, AppConfigLoader, run_app};
+        use ioc::{preload_mods, AppConfigLoader, run_app, log_init};
+
+        log_init()?;
+
+        preload_mods!();
         let loader = AppConfigLoader {
             $(
 
@@ -98,7 +103,6 @@ macro_rules! run {
             )*
             ..Default::default()
         };
-        preload_mods!();
         run_app(loader)?;
     }
 }
@@ -117,7 +121,6 @@ pub static BEAN_COLLECTOR: [fn(&mut Context) -> Result<()>] = [..];
 ///
 /// If the application runs successfully, it returns `Ok(())`. If an error occurs during the run, it returns `Err(IocError)`.
 pub fn run_app(loader: AppConfigLoader) -> Result<()> {
-    log::log_init()?;
 
     let  config = loader.load()?;
     let mut ctx = Context::new(config);

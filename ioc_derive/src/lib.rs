@@ -34,7 +34,7 @@ pub fn preload_mods(_: TokenStream) -> TokenStream {
     let test = format!("{mod_names:?}");
 
     let expanded = quote! {
-        println!("preload mods: {}", #test);
+        ioc::log::info!("preload mods: {}", #test);
         #( use #mods; )*
     };
 
