@@ -49,7 +49,7 @@
 //! impl BeanFactory for AnotherBeanA {
 //!     type Bean = A;
 //!
-//!     fn build(ctx: &mut Context) -> ioc_core::Result<Self::Bean> {
+//!     fn build(ctx: &mut Context) -> ioc::Result<Self::Bean> {
 //!         Ok(A)
 //!     }
 //! }
@@ -68,8 +68,7 @@
 
 
 #[doc(hidden)]
-pub use linkme;
-use linkme::distributed_slice;
+pub use linkme::{self, *};
 
 pub use ioc_core::{
     AppConfigLoader,

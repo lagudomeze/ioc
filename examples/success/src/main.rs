@@ -45,6 +45,7 @@ impl BeanFactory for AnotherBeanA {
         })
     }
 }
+
 fn main() -> anyhow::Result<()> {
     run!(dir = "./", profile = "dev");
     println!("{:p}", A::get());

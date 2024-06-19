@@ -108,7 +108,7 @@ pub fn bean_definition(input: TokenStream) -> TokenStream {
             impl ::ioc::BeanFactory for #name {
                 type Bean = Self;
 
-                fn build(ctx: &mut ::ioc::Context) -> ioc_core::Result<Self::Bean> {
+                fn build(ctx: &mut ::ioc::Context) -> ioc::Result<Self::Bean> {
                     Ok(Self::Bean {
                         #(#field_initializers),*
                     })
@@ -143,7 +143,8 @@ pub fn bean_definition(input: TokenStream) -> TokenStream {
 
     let bean_register = quote! {
         #[allow(non_snake_case)]
-        #[::ioc::linkme::distributed_slice(::ioc::BEAN_COLLECTOR)]
+        #[::ioc::distributed_slice(::ioc::BEAN_COLLECTOR)]
+        #[linkme(crate = ::ioc::linkme)]
         fn #register_method(ctx: &mut ::ioc::Context) -> ::ioc::Result<()>  {
             ctx.get_or_init::<#name>()?;
             Ok(())

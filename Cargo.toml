@@ -18,7 +18,7 @@ thiserror = { workspace = true }
 anyhow = { workspace = true }
 
 [workspace]
-members = ["ioc_core", "ioc_derive"]
+members = [ "examples/success","ioc_core", "ioc_derive"]
 
 [workspace.dependencies]
 cfg-rs = { version = "0.4.0", features = ["full"] }

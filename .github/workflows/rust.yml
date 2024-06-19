@@ -23,4 +23,6 @@ jobs:
         run: cargo test --all --verbose
       - name: Run example hello
         run: cargo run --example hello
+      - name: Run example success
+        run: cargo run -p success
 
