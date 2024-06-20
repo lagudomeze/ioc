@@ -1,4 +1,5 @@
 use thiserror::Error;
+use std::io;
 
 pub type Result<T> = std::result::Result<T, IocError>;
 
@@ -10,6 +11,8 @@ pub enum IocError {
     DependNotReady { type_name: &'static str },
     #[error("circular dependency")]
     CircularDependency,
+    #[error("io: `{0}`")]
+    Io(#[from] io::Error),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
 }
