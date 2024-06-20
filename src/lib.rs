@@ -94,7 +94,7 @@ macro_rules! run {
 
         preload_mods!();
 
-        let loader = load_config!($($field: $value.into(),)*);
+        let loader = load_config!($($field: $value,)*);
 
         run_app(loader)?;
     }

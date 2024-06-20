@@ -185,7 +185,7 @@ pub fn load_config(input: TokenStream) -> TokenStream {
     for field in params.fields {
         let value = field.expr;
         if let Named(key) = field.member {
-            fields.push(quote! { #key : #value });
+            fields.push(quote! { #key : #value.as_ref() });
             if key.eq("name") {
                 name = None;
             } else if key.eq("dir") {
@@ -197,15 +197,15 @@ pub fn load_config(input: TokenStream) -> TokenStream {
     }
 
     if let Some(value) = name {
-        fields.push(quote! { name : #value });
+        fields.push(quote! { name : #value.as_ref() });
     }
 
     if let Some(value) = dir {
-        fields.push(quote! { dir : #value });
+        fields.push(quote! { dir : #value.as_ref() });
     }
 
     if let Some(value) = profile {
-        fields.push(quote! { profile : #value });
+        fields.push(quote! { profile : #value.as_ref() });
     }
 
     let expanded = quote! {
