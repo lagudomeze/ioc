@@ -2,14 +2,11 @@ use proc_macro::TokenStream;
 
 use proc_macro2::{Ident, Span};
 use quote::{format_ident, quote};
-use syn::{
-    DeriveInput,
-    Error,
-    parse_macro_input,
-    spanned::Spanned,
-    Type,
-    TypeReference,
-};
+use syn::{DeriveInput, Error, FieldValue, parse_macro_input, spanned::Spanned, Type, TypeReference};
+use syn::Member::Named;
+use syn::parse::{Parse, ParseStream};
+use syn::punctuated::Punctuated;
+use syn::token::Comma;
 
 use bean::{FieldAttribute, TypeAttribute};
 
@@ -161,6 +158,66 @@ pub fn bean_definition(input: TokenStream) -> TokenStream {
     };
 
     TokenStream::from(expanded)
+}
+
+
+struct LoadConfigParam {
+    fields: Punctuated<FieldValue, Comma>,
+}
+
+impl Parse for LoadConfigParam {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        Ok(Self {
+            fields: Punctuated::parse_terminated(input)?
+        })
+    }
+}
+
+#[proc_macro]
+pub fn load_config(input: TokenStream) -> TokenStream {
+    let params = parse_macro_input!(input as LoadConfigParam);
+
+    let mut fields = vec![];
+    let mut name = Some(quote! { env!("CARGO_PKG_NAME") });
+    let mut dir = Some(quote! {"."});
+    let mut profile = Some(quote! {"prod"});
+
+    for field in params.fields {
+        let value = field.expr;
+        if let Named(key) = field.member {
+            fields.push(quote! { #key : #value });
+            if key.eq("name") {
+                name = None;
+            } else if key.eq("dir") {
+                dir = None;
+            } else if key.eq("profile") {
+                profile = None;
+            }
+        }
+    }
+
+    if let Some(value) = name {
+        fields.push(quote! { name : #value });
+    }
+
+    if let Some(value) = dir {
+        fields.push(quote! { dir : #value });
+    }
+
+    if let Some(value) = profile {
+        fields.push(quote! { profile : #value });
+    }
+
+    let expanded = quote! {
+        {
+            use ioc::AppConfigLoader;
+            AppConfigLoader {
+                #(#fields,)*
+            }
+        }
+    };
+
+    expanded.into()
 }
 
 #[allow(unused_imports)]

@@ -7,7 +7,7 @@ pub use bean::{
     Context
 };
 pub use config::{
-    AppConfigLoader, AppName, Config, ConfigPath, ConfigProfile
+    AppConfigLoader, Config,
 };
 pub use error::{IocError, Result};
 

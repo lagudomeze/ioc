@@ -67,42 +67,35 @@
 //! ```
 
 
-pub mod log;
-
 #[doc(hidden)]
 pub use linkme::{self, *};
 
 pub use ioc_core::{
     AppConfigLoader,
-    AppName,
     Bean,
     BeanFactory,
     Config,
-    ConfigPath,
-    ConfigProfile,
     Context,
     IocError,
     Result,
 };
-pub use ioc_derive::{Bean, preload_mods};
+pub use ioc_derive::{Bean, preload_mods, load_config};
 pub use log::log_init;
+
+pub mod log;
 
 /// See module level documentation for more information.
 #[macro_export]
 macro_rules! run {
     ($($field:ident = $value:expr),* $(,)?) => {
-        use ioc::{preload_mods, AppConfigLoader, run_app, log_init};
+        use ioc::{preload_mods, load_config, run_app, log_init};
 
         log_init()?;
 
         preload_mods!();
-        let loader = AppConfigLoader {
-            $(
 
-                $field: $value.into(),
-            )*
-            ..Default::default()
-        };
+        let loader = load_config!($($field: $value.into(),)*);
+
         run_app(loader)?;
     }
 }
