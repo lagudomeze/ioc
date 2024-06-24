@@ -81,7 +81,7 @@ pub use ioc_core::{
 };
 use ioc_core::DropGuard;
 pub use ioc_derive::{Bean, preload_mods, load_config};
-pub use log::log_init;
+pub use log::{log_init, LogPatcher};
 
 pub mod log;
 
@@ -98,7 +98,9 @@ macro_rules! run {
 
             let loader = load_config!($($field: $value,)*);
 
-            run_app(loader)?
+            let drop_guard = run_app(loader)?;
+
+            drop_guard
         }
     }
 }

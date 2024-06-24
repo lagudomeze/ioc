@@ -9,7 +9,7 @@ edition = "2021"
 cfg-rs = { workspace = true }
 env_logger = { workspace = true, optional = true }
 tracing = { workspace = true, optional = true}
-tracing-subscriber = { workspace = true, optional = true }
+tracing-subscriber = { workspace = true, optional = true , features = ["env-filter"]}
 ioc_core = { workspace = true }
 ioc_derive = { workspace = true }
 linkme = { workspace = true }
