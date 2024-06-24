@@ -4,7 +4,8 @@ pub use bean::{
     Bean,
     BeanFactory,
     BeanSpec,
-    Context
+    Context,
+    DropGuard
 };
 pub use config::{
     AppConfigLoader, Config,
