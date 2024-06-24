@@ -89,15 +89,17 @@ pub mod log;
 #[macro_export]
 macro_rules! run {
     ($($field:ident = $value:expr),* $(,)?) => {
-        use ioc::{preload_mods, load_config, run_app, log_init};
+        {
+            use ioc::{preload_mods, load_config, run_app, log_init};
 
-        log_init()?;
+            log_init()?;
 
-        preload_mods!();
+            preload_mods!();
 
-        let loader = load_config!($($field: $value,)*);
+            let loader = load_config!($($field: $value,)*);
 
-        run_app(loader)?;
+            run_app(loader)?
+        }
     }
 }
 /// This is a global-distributed slice used to collect all bean factory functions.
