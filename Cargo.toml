@@ -25,7 +25,7 @@ tracing_log = ["tracing-subscriber", "tracing"]
 anyhow = { workspace = true }
 
 [workspace]
-members = [ "examples/success","ioc_core", "ioc_derive"]
+members = ["examples/success", "ioc_core", "ioc_derive", "simply_poem", "simply_poem/macro"]
 
 [workspace.dependencies]
 cfg-rs = { version = "0.4", features = ["full"] }
@@ -43,6 +43,10 @@ serde = { version = "1" }
 toml = "0.8"
 ioc_core = { path = "./ioc_core" }
 ioc_derive = { path = "./ioc_derive" }
+simply_poem = { path = "./simply_poem" }
+simply_poem_macro = { path = "simply_poem/macro" }
+poem = { version = "3" }
+poem-openapi = { version = "5" }
 
 [workspace.dependencies.syn]
 version = "2"

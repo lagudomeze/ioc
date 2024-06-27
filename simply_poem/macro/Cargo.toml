@@ -1,0 +1,12 @@
+[package]
+name = "simply_poem_macro"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+proc-macro2 = { workspace = true }
+quote = { workspace = true }
+syn = { workspace = true, features = ["full", "visit-mut"] }
+
+[lib]
+proc-macro = true
