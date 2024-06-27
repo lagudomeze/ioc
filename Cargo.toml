@@ -44,7 +44,7 @@ toml = "0.8"
 ioc_core = { path = "./ioc_core" }
 ioc_derive = { path = "./ioc_derive" }
 simply_poem = { path = "./simply_poem" }
-simply_poem_macro = { path = "simply_poem/macro" }
+simply_poem_macro = { path = "./simply_poem/macro" }
 poem = { version = "3" }
 poem-openapi = { version = "5" }
 
