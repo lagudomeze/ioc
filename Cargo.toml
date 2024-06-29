@@ -25,7 +25,7 @@ tracing_log = ["tracing-subscriber", "tracing"]
 anyhow = { workspace = true }
 
 [workspace]
-members = ["examples/success", "ioc_core", "ioc_derive", "simply_poem", "simply_poem/macro"]
+members = ["examples/success", "ioc_core", "ioc_derive", "simply_poem", "simply_poem/macro", "ioc_scan"]
 
 [workspace.dependencies]
 cfg-rs = { version = "0.4", features = ["full"] }
@@ -47,6 +47,7 @@ simply_poem = { path = "./simply_poem" }
 simply_poem_macro = { path = "./simply_poem/macro" }
 poem = { version = "3" }
 poem-openapi = { version = "5" }
+ioc_scan = {path = "./ioc_scan"}
 
 [workspace.dependencies.syn]
 version = "2"

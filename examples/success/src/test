@@ -1,0 +1,1 @@
+Path { leading_colon: None, segments: [PathSegment { ident: Ident(AnotherBeanA), arguments: PathArguments::None }] }

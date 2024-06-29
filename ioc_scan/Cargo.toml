@@ -1,0 +1,9 @@
+[package]
+name = "ioc_scan"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+syn = { workspace = true, features = ["full", "fold"] }
+thiserror = { workspace = true }
+quote = { workspace = true }

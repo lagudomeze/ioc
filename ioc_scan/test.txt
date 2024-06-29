@@ -1,0 +1,4 @@
+tt :: Bxx
+B
+A
+AnotherBeanA

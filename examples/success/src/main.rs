@@ -2,6 +2,16 @@
 
 use ioc::{Bean, run, BeanFactory, Context};
 
+mod tt {
+    use ioc::Bean;
+
+    #[derive(Bean)]
+    struct Bxx {
+
+    }
+
+}
+
 #[derive(Bean)]
 struct B {
     #[inject]
