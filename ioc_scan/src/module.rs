@@ -1,15 +1,11 @@
-use std::{
-    fs::read_to_string,
-    path::PathBuf,
-};
 use std::mem::swap;
+use std::{fs::read_to_string, path::PathBuf};
 
-use syn::{Ident, ItemImpl, ItemMod, ItemStruct, Path, PathSegment, visit::{
-    Visit,
-    visit_item_mod,
-}};
-use syn::__private::Span;
 use syn::visit::{visit_item_impl, visit_item_struct};
+use syn::{
+    visit::{visit_item_mod, Visit},
+    Ident, ItemImpl, ItemMod, ItemStruct, Path, PathSegment,
+};
 use thiserror::__private::AsDisplay;
 
 use crate::{Error, Result};
@@ -39,10 +35,7 @@ pub struct ModuleInfo {
 
 impl ModuleInfo {
     fn new(module_path: Path, file: PathBuf) -> Self {
-        Self {
-            module_path,
-            file,
-        }
+        Self { module_path, file }
     }
 
     fn sub(&self, sub_module_name: &Ident) -> Result<Self> {
@@ -54,7 +47,8 @@ impl ModuleInfo {
         let file = sub_module_file(parent, sub_module_name);
         let module_path = {
             let mut path = self.module_path.clone();
-            path.segments.push(PathSegment::from(sub_module_name.clone()));
+            path.segments
+                .push(PathSegment::from(sub_module_name.clone()));
             path
         };
         Ok(Self::new(module_path, file))
@@ -75,25 +69,21 @@ pub trait Scanner {
         Ok(())
     }
 
-    fn scan_main(self) -> Result<Self>
+    fn scan(self, file: &str) -> Result<Self>
     where
         Self: Sized,
     {
-        main_visit(self).scan()
-    }
-
-    fn scan_lib_local(self) -> Result<Self>
-    where
-        Self: Sized,
-    {
-        lib_visit_local(self).scan()
-    }
-
-    fn scan_lib(self, name: &str) -> Result<Self>
-    where
-        Self: Sized,
-    {
-        lib_visit(name, self).scan()
+        let module_path = Path {
+            leading_colon: None,
+            segments: Default::default(),
+        };
+        let file = PathBuf::from(file);
+        let module_info = ModuleInfo::new(module_path, file);
+        let visit = ScanVisit {
+            module_info,
+            scanner: self,
+        };
+        visit.scan()
     }
 }
 
@@ -110,14 +100,13 @@ where
 
     fn visit_item_mod(&mut self, i: &'ast ItemMod) {
         if i.content.is_none() {
-            let mut module_info = self.module_info
+            let mut module_info = self
+                .module_info
                 .sub(&i.ident)
                 .expect("sub module not found!");
 
-            let string = read_to_string(&module_info.file)
-                .expect("read file failed!");
-            let file = syn::parse_file(&string)
-                .expect("parse file failed!");
+            let string = read_to_string(&module_info.file).expect("read file failed!");
+            let file = syn::parse_file(&string).expect("parse file failed!");
 
             swap(&mut self.module_info, &mut module_info);
             self.visit_file(&file);
@@ -128,9 +117,11 @@ where
             self.module_info.module_path.segments.push(segment);
             visit_item_mod(self, &i);
 
-            let pair = self.module_info
+            let pair = self
+                .module_info
                 .module_path
-                .segments.pop()
+                .segments
+                .pop()
                 .expect("module path is empty! it should not happen!");
 
             assert_eq!(pair.value().ident, i.ident);
@@ -151,31 +142,5 @@ impl<'ast, T: Scanner> ScanVisit<T> {
         let file = syn::parse_file(&string)?;
         self.visit_file(&file);
         Ok(self.scanner)
-    }
-}
-
-fn crate_path() -> Path {
-    crate_path_with_name("crate")
-}
-
-fn crate_path_with_name(name: &str) -> Path {
-    Path::from(Ident::new(name, Span::call_site()))
-}
-
-pub fn main_visit<T>(scanner: T) -> ScanVisit<T> {
-    ScanVisit {
-        module_info: ModuleInfo::new(crate_path(), PathBuf::from("src/main.rs")),
-        scanner,
-    }
-}
-
-pub fn lib_visit_local<T>(scanner: T) -> ScanVisit<T> {
-    lib_visit("crate", scanner)
-}
-
-pub fn lib_visit<T>(name: &str, scanner: T) -> ScanVisit<T> {
-    ScanVisit {
-        module_info: ModuleInfo::new(crate_path_with_name(name), PathBuf::from("src/lib.rs")),
-        scanner,
     }
 }

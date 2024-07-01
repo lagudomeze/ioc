@@ -1,23 +1,41 @@
-use std::{env, fs::{self}, path::PathBuf};
+use std::{
+    env,
+    fs::{self},
+    path::PathBuf,
+};
 
-use quote::quote;
-pub use syn;
-use syn::{ItemStruct, Path, PathSegment};
+use syn::{parse_quote, Item, ItemStruct, Path, PathSegment};
 
-pub use error::{Error, Result};
-
-use crate::module::{ModuleInfo, Scanner};
+use crate::{
+    error::{Error, Result},
+    module::{ModuleInfo, Scanner},
+};
 
 mod error;
 mod module;
 
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
-}
-
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct InitScanner {
     types: Vec<Path>,
+    out_dir: PathBuf,
+}
+
+impl InitScanner {
+    fn out_dir<T: Into<PathBuf>>(self, out_dir: T) -> Self {
+        Self {
+            out_dir: out_dir.into(),
+            ..self
+        }
+    }
+}
+
+impl Default for InitScanner {
+    fn default() -> Self {
+        Self {
+            types: Vec::new(),
+            out_dir: PathBuf::new(),
+        }
+    }
 }
 
 impl Scanner for InitScanner {
@@ -39,64 +57,51 @@ impl Scanner for InitScanner {
 }
 
 impl InitScanner {
-    fn build_init_method(self) -> Result<()> {
-        let scanner = self.scan_main()?;
+    fn build_init_method(self, file: &str) -> Result<()> {
+        let scanner = self.scan(file)?;
 
         let types = &scanner.types;
 
-        let out_dir = env::var_os("OUT_DIR")
-            .expect("OUT_DIR is not set");
-        let dest_path = PathBuf::from(&out_dir).join("init.rs");
+        let dest_path = scanner.out_dir.join("init.rs");
 
-        let code = quote! {
+        let func: Item = parse_quote! {
+
             pub fn all_types_with<F: ioc::BeanFamily>(ctx: F::Ctx) -> ioc::Result<F::Ctx> {
                 use ioc::MethodType;
-                #(let ctx = F::Method::<#types>::run(ctx)?; )*
+                #(let ctx = F::Method::<crate::#types>::run(ctx)?; )*
                 Ok(ctx)
             }
         };
 
-        fs::write(&dest_path, &code.to_string())?;
+        let file = syn::File {
+            shebang: None,
+            attrs: vec![],
+            items: vec![func],
+        };
+
+        fs::write(&dest_path, &prettyplease::unparse(&file))?;
 
         Ok(())
     }
 }
 
 pub fn build_init_method() {
-    let scanner = InitScanner::default()
-        .scan_main()
+    let out_dir = env::var_os("OUT_DIR").expect("OUT_DIR is not set");
+    InitScanner::default()
+        .out_dir(out_dir)
+        .build_init_method("src/main.rs")
         .expect("error for scan main");
-
-    scanner
-        .build_init_method()
-        .expect("error for build init method");
-
 }
 
 #[cfg(test)]
 mod tests {
-    use std::fs::File;
-    use std::io::Write;
-
-    use quote::quote;
-
     use super::*;
 
     #[test]
     fn it_works() {
-        let scanner = InitScanner::new("../examples/success/src/main.rs");
-
-        let vec = scanner.types_with_derive("Bean").expect("exty");
-
-        let mut file = File::options()
-            .create(true)
-            .truncate(true)
-            .write(true)
-            .open("test.txt")
-            .expect("");
-        for path in vec {
-            let code = quote! {#path}.to_string();
-            file.write(format!("{code}\n").as_bytes()).expect("");
-        }
+        InitScanner::default()
+            .out_dir("./")
+            .build_init_method("../examples/success/src/main.rs")
+            .expect("error for scan main");
     }
 }

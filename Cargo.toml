@@ -8,8 +8,8 @@ edition = "2021"
 [dependencies]
 cfg-rs = { workspace = true }
 env_logger = { workspace = true, optional = true }
-tracing = { workspace = true, optional = true}
-tracing-subscriber = { workspace = true, optional = true , features = ["env-filter"]}
+tracing = { workspace = true, optional = true }
+tracing-subscriber = { workspace = true, optional = true, features = ["env-filter"] }
 ioc_core = { workspace = true }
 ioc_derive = { workspace = true }
 linkme = { workspace = true }
@@ -43,11 +43,12 @@ serde = { version = "1" }
 toml = "0.8"
 ioc_core = { path = "./ioc_core" }
 ioc_derive = { path = "./ioc_derive" }
+ioc_scan = { path = "./ioc_scan" }
 simply_poem = { path = "./simply_poem" }
 simply_poem_macro = { path = "./simply_poem/macro" }
 poem = { version = "3" }
 poem-openapi = { version = "5" }
-ioc_scan = {path = "./ioc_scan"}
+prettyplease = { version = "0.2" }
 
 [workspace.dependencies.syn]
 version = "2"

@@ -7,3 +7,4 @@ edition = "2021"
 syn = { workspace = true, features = ["full", "fold", "visit"] }
 thiserror = { workspace = true }
 quote = { workspace = true }
+prettyplease = {workspace = true}
