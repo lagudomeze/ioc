@@ -220,6 +220,15 @@ pub fn load_config(input: TokenStream) -> TokenStream {
     expanded.into()
 }
 
+#[proc_macro]
+pub fn load_types(_: TokenStream) -> TokenStream {
+    let expanded = quote! {
+        include!(concat!(env!("OUT_DIR"), "/init.rs"));
+    };
+
+    expanded.into()
+}
+
 #[allow(unused_imports)]
 #[cfg(test)]
 mod tests {

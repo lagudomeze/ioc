@@ -1,14 +1,15 @@
-use std::{fs::read_to_string, io, path::Path, path::PathBuf, result::Result as StdResult};
+use std::{env, fs, fs::read_to_string, io, path::Path, path::PathBuf, result::Result as StdResult};
 
+use quote::quote;
 pub use syn;
 use syn::{
+    File,
     fold::{self, Fold},
-    punctuated::Punctuated,
-    spanned::Spanned,
-    File, Ident, ItemMod, ItemStruct, Path as PathType, PathSegment,
+    Ident,
+    ItemMod, ItemStruct, Path as PathType, PathSegment, punctuated::Punctuated, spanned::Spanned,
 };
-use thiserror::Error;
 use thiserror::__private::AsDisplay;
+use thiserror::Error;
 
 pub fn add(left: u64, right: u64) -> u64 {
     left + right
@@ -85,7 +86,7 @@ fn sub_module_path(parent: &Path, sub_module: &Ident) -> PathBuf {
     let mod_file_path = parent.join(format!("{}.rs", sub_module));
     if mod_dir_path.exists() && mod_dir_path.is_file() {
         mod_dir_path
-    } else if mod_file_path.exists() && mod_file_path.is_dir() {
+    } else if mod_file_path.exists() && mod_file_path.is_file() {
         mod_file_path
     } else {
         let segment = sub_module.to_string();
@@ -106,7 +107,8 @@ impl<'a> Fold for ScanFold<'a> {
     fn fold_item_mod(&mut self, i: ItemMod) -> ItemMod {
         let sub_module_ident = &i.ident.clone();
         if i.content.is_none() {
-            let path = sub_module_path(self.file_path, sub_module_ident);
+            let parent = self.file_path.parent().expect("");
+            let path = sub_module_path(parent, sub_module_ident);
             let mut fold = sub_module(self, sub_module_ident, path.as_path());
             let file =
                 read_to_string(&path).expect(&format!("{} is not existed", path.as_display()));
@@ -155,6 +157,39 @@ impl Scanner {
 
         Ok(fold.types)
     }
+}
+
+pub struct InitCode;
+
+impl InitCode {
+    pub fn build_init_method(types: &[PathType]) -> Result<()> {
+        let out_dir = env::var_os("OUT_DIR")
+            .expect("OUT_DIR is not set");
+        let dest_path = Path::new(&out_dir).join("init.rs");
+
+        let code = quote! {
+            pub fn all_types_with<F: ioc::BeanFamily>(ctx: F::Ctx) -> ioc::Result<F::Ctx> {
+                use ioc::MethodType;
+                #(let ctx = F::Method::<#types>::run(ctx)?; )*
+                Ok(ctx)
+            }
+        };
+
+        fs::write(&dest_path, &code.to_string())?;
+
+        Ok(())
+    }
+}
+
+pub fn build_init_method() {
+    let scanner = Scanner::new("src/main.rs");
+
+    let vec = scanner
+        .types_with_derive("Bean")
+        .expect("error for scan bean types");
+
+    InitCode::build_init_method(&vec)
+        .expect("error for build init method");
 }
 
 #[cfg(test)]

@@ -1,12 +1,14 @@
 // examples/hello.rs
 
-use ioc::{Bean, run, BeanFactory, Context};
+mod test;
+
+use ioc::{Bean, BeanFactory, Context, Init, run, load_types};
 
 mod tt {
     use ioc::Bean;
 
     #[derive(Bean)]
-    struct Bxx {
+    pub struct Bxx {
 
     }
 
@@ -55,6 +57,8 @@ impl BeanFactory for AnotherBeanA {
         })
     }
 }
+
+load_types!();
 
 fn main() -> anyhow::Result<()> {
     run!(dir = "./", profile = "dev");

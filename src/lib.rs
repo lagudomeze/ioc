@@ -78,9 +78,13 @@ pub use ioc_core::{
     Context,
     IocError,
     Result,
+    MethodType,
+    BeanFamily,
+    Init,
+    Wrapper
 };
 use ioc_core::DropGuard;
-pub use ioc_derive::{Bean, preload_mods, load_config};
+pub use ioc_derive::{Bean, preload_mods, load_config, load_types};
 pub use log::{log_init, LogPatcher};
 
 pub mod log;
@@ -89,19 +93,19 @@ pub mod log;
 #[macro_export]
 macro_rules! run {
     ($($field:ident = $value:expr),* $(,)?) => {
-        {
-            use ioc::{preload_mods, load_config, run_app, log_init};
+        use ioc::{load_config, log_init, preload_mods, run_app};
 
-            log_init()?;
+        log_init()?;
 
-            preload_mods!();
+        let loader = load_config!($($field: $value,)*);
 
-            let loader = load_config!($($field: $value,)*);
+        let  config = loader.load()?;
 
-            let drop_guard = run_app(loader)?;
+        let mut ctx = Context::new(config);
 
-            drop_guard
-        }
+        all_types_with::<Init>(&mut ctx)?;
+
+        ctx.complete()
     }
 }
 /// This is a global-distributed slice used to collect all bean factory functions.
