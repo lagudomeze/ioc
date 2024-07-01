@@ -1,33 +1,27 @@
-use crate::bean::Bean;
-use crate::Context;
+use crate::{Bean, Result};
 
-trait Init {
-    fn init(ctx: &mut Context);
+pub trait MethodType {
+    type Ctx;
+    fn run(ctx: Self::Ctx) -> Result<Self::Ctx>;
 }
 
-trait InitFamily {
-    type Method<B>: Init
+pub trait BeanFamily {
+    type Ctx;
 
+    type Method<B>: MethodType<Ctx=Self::Ctx>
     where
         B: Bean;
 }
 
-
 #[cfg(test)]
 mod tests {
-    use std::any::type_name;
-
     use cfg_rs::Configuration;
 
-    use crate::{Bean, Config, Context};
-    use crate::types::{Init, InitFamily};
-    use crate::types::tests::bean::init;
+    use crate::{Config, Context, Init, types::tests::bean::all_types_with};
 
     mod bean {
-        use crate::Context;
-        use crate::types::InitFamily;
-        use crate::types::tests::bean::a::A;
-        use crate::types::tests::bean::b::B;
+        use crate::{Result, types::tests::bean::a::A, types::tests::bean::b::B};
+        use crate::types::BeanFamily;
 
         mod a {
             use std::sync::OnceLock;
@@ -74,37 +68,21 @@ mod tests {
             }
         }
 
-        pub fn init<F: InitFamily>(ctx: &mut Context) {
-            use crate::types::Init;
-            F::Method::<A>::init(ctx);
-            F::Method::<B>::init(ctx);
+        pub fn all_types_with<F: BeanFamily>(ctx: F::Ctx) -> Result<F::Ctx>
+        {
+            use crate::types::MethodType;
+            let ctx = F::Method::<A>::run(ctx)?;
+            let ctx = F::Method::<B>::run(ctx)?;
+            Ok(ctx)
         }
     }
 
-    struct Wrapper<T>(T);
-
-    struct XxxxInit;
-
-    impl InitFamily for XxxxInit {
-        type Method<B> = Wrapper<B>
-        where
-            B: Bean;
-    }
-
-    impl<B> Init for Wrapper<B>
-    where
-        B: Bean,
-    {
-        fn init(ctx: &mut Context) {
-            let x = B::holder().get_or_init(|| B::build(ctx).unwrap());
-            println!("Init bean {:p} of {}", x, type_name::<B>());
-        }
-    }
 
     #[test]
     fn test() {
-        init::<XxxxInit>(&mut Context::new(Config {
-            source: Configuration::with_predefined_builder().init().unwrap()
-        }));
+        let source = Configuration::with_predefined_builder().init().unwrap();
+        let config = Config { source };
+        let mut ctx = Context::new(config);
+        all_types_with::<Init>(&mut ctx).unwrap();
     }
 }

@@ -11,6 +11,8 @@ pub use config::{
     AppConfigLoader, Config,
 };
 pub use error::{IocError, Result};
+pub use init::{Wrapper, Init};
+pub use types::{BeanFamily, MethodType};
 
 #[macro_export]
 macro_rules! load_config {
@@ -28,4 +30,5 @@ mod bean;
 mod error;
 mod config;
 mod types;
+mod init;
 

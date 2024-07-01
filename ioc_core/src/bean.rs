@@ -63,6 +63,10 @@ pub struct Context {
 }
 
 /// The `BeanFactory` trait defines the contract for creating an instance of a bean.
+#[diagnostic::on_unimplemented(
+    message = "BeanFactory is not implemented for this type `{Self}`",
+    label = "implement BeanFactory for this type",
+)]
 pub trait BeanFactory {
     /// The type of bean that will be created by this factory.
     type Bean;
@@ -75,6 +79,29 @@ pub trait BeanFactory {
 }
 
 /// The `Bean` trait extends `BeanFactory` with additional functionality for managing bean lifecycle within the IoC container.
+#[diagnostic::on_unimplemented(
+    message = "Bean is not implemented for this type `{Self}`",
+    label = "implement Bean for this type",
+    note = " add Bean macro for this type
+    #[derive(Bean)]
+    struct YourType {{
+        ...
+    }}
+    ",
+    note = "or define your bean factory type
+    impl BeanFactory for YourFactoryType {{
+        type Bean = YourType;
+
+        fn build(ctx: &mut Context) -> ioc::Result<Self::Bean> {{
+            Ok(YourType {{ }})
+        }}
+    }}
+
+    #[derive(Bean)]
+    #[custom_factory]
+    struct YourFactoryType;
+    "
+)]
 pub trait Bean: BeanFactory<Bean: 'static + Sized> {
 
     /// Returns a reference to the holder that contains the singleton instance of this bean.
