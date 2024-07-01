@@ -4,6 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-syn = { workspace = true, features = ["full", "fold"] }
+syn = { workspace = true, features = ["full", "fold", "visit"] }
 thiserror = { workspace = true }
 quote = { workspace = true }

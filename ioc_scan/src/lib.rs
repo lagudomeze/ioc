@@ -1,171 +1,52 @@
-use std::{env, fs, fs::read_to_string, io, path::Path, path::PathBuf, result::Result as StdResult};
+use std::{env, fs::{self}, path::PathBuf};
 
 use quote::quote;
 pub use syn;
-use syn::{
-    File,
-    fold::{self, Fold},
-    Ident,
-    ItemMod, ItemStruct, Path as PathType, PathSegment, punctuated::Punctuated, spanned::Spanned,
-};
-use thiserror::__private::AsDisplay;
-use thiserror::Error;
+use syn::{ItemStruct, Path, PathSegment};
+
+pub use error::{Error, Result};
+
+use crate::module::{ModuleInfo, Scanner};
+
+mod error;
+mod module;
 
 pub fn add(left: u64, right: u64) -> u64 {
     left + right
 }
 
-#[derive(Debug, Error)]
-pub enum Error {
-    #[error("io error: `{0}`")]
-    IoError(#[from] io::Error),
-    #[error("syn error: `{0}`")]
-    SynError(#[from] syn::Error),
+#[derive(Debug, Default)]
+pub struct InitScanner {
+    types: Vec<Path>,
 }
 
-pub type Result<T> = StdResult<T, Error>;
-
-#[derive(Debug)]
-pub struct Scanner {
-    root: PathBuf,
-}
-
-impl Scanner {
-    pub fn new<P>(root: P) -> Self
-    where
-        P: AsRef<str>,
-    {
-        Self {
-            root: PathBuf::from(root.as_ref()),
-        }
-    }
-}
-
-struct ScanFold<'a> {
-    types: Vec<PathType>,
-    module_path: PathType,
-    derive_trait: &'a Ident,
-    file_path: &'a Path,
-}
-
-impl<'a> ScanFold<'a> {
-    fn new(derive_trait: &'a Ident, file_path: &'a Path) -> Self {
-        Self {
-            types: Vec::new(),
-            module_path: PathType {
-                leading_colon: None,
-                segments: Punctuated::new(),
-            },
-            derive_trait,
-            file_path,
-        }
-    }
-}
-
-fn sub_module<'a, 'b>(
-    source: &'a ScanFold,
-    sub_module: &'b Ident,
-    file_path: &'b Path,
-) -> ScanFold<'b>
-where
-    'a: 'b,
-{
-    let mut module_path = source.module_path.clone();
-    module_path
-        .segments
-        .push(PathSegment::from(sub_module.clone()));
-    ScanFold {
-        types: Vec::new(),
-        module_path,
-        derive_trait: source.derive_trait,
-        file_path,
-    }
-}
-fn sub_module_path(parent: &Path, sub_module: &Ident) -> PathBuf {
-    let mod_dir_path = parent.join(format!("{}/mod.rs", sub_module));
-    let mod_file_path = parent.join(format!("{}.rs", sub_module));
-    if mod_dir_path.exists() && mod_dir_path.is_file() {
-        mod_dir_path
-    } else if mod_file_path.exists() && mod_file_path.is_file() {
-        mod_file_path
-    } else {
-        let segment = sub_module.to_string();
-        panic!(
-            "there is nether {}/mod.rs nor {}.rs under {} ",
-            segment,
-            segment,
-            parent.as_display()
-        )
-    }
-}
-
-impl<'a> Fold for ScanFold<'a> {
-    fn fold_file(&mut self, i: File) -> File {
-        fold::fold_file(self, i)
-    }
-
-    fn fold_item_mod(&mut self, i: ItemMod) -> ItemMod {
-        let sub_module_ident = &i.ident.clone();
-        if i.content.is_none() {
-            let parent = self.file_path.parent().expect("");
-            let path = sub_module_path(parent, sub_module_ident);
-            let mut fold = sub_module(self, sub_module_ident, path.as_path());
-            let file =
-                read_to_string(&path).expect(&format!("{} is not existed", path.as_display()));
-            let file =
-                syn::parse_file(&file).expect(&format!("{} parsed failed", path.as_display()));
-            fold.fold_file(file);
-            self.types.append(&mut fold.types);
-            fold::fold_item_mod(self, i)
-        } else {
-            let mut fold = sub_module(self, sub_module_ident, self.file_path);
-            let item_mod = fold::fold_item_mod(&mut fold, i);
-            self.types.append(&mut fold.types);
-            item_mod
-        }
-    }
-
-    fn fold_item_struct(&mut self, i: ItemStruct) -> ItemStruct {
+impl Scanner for InitScanner {
+    fn item_struct(&mut self, module_info: &ModuleInfo, i: &ItemStruct) -> Result<()> {
         for attr in i.attrs.iter() {
             if attr.path().is_ident("derive") {
                 attr.parse_nested_meta(|meta| {
-                    if meta.path.is_ident(self.derive_trait) {
-                        let mut find_type = self.module_path.clone();
+                    if meta.path.is_ident("Bean") {
+                        let mut find_type = module_info.module_path.clone();
                         find_type.segments.push(PathSegment::from(i.ident.clone()));
                         self.types.push(find_type);
                     }
                     Ok(())
-                })
-                .expect("");
+                })?;
             }
         }
-        fold::fold_item_struct(self, i)
+        Ok(())
     }
 }
 
-impl Scanner {
-    pub fn types_with_derive(&self, derive_trait: &str) -> Result<Vec<PathType>> {
-        let file = read_to_string(&self.root)?;
+impl InitScanner {
+    fn build_init_method(self) -> Result<()> {
+        let scanner = self.scan_main()?;
 
-        let file = syn::parse_file(&file)?;
+        let types = &scanner.types;
 
-        let derive_trait = Ident::new(derive_trait, file.span());
-
-        let mut fold = ScanFold::new(&derive_trait, &self.root);
-
-        fold.fold_file(file);
-
-        Ok(fold.types)
-    }
-}
-
-pub struct InitCode;
-
-impl InitCode {
-    pub fn build_init_method(types: &[PathType]) -> Result<()> {
         let out_dir = env::var_os("OUT_DIR")
             .expect("OUT_DIR is not set");
-        let dest_path = Path::new(&out_dir).join("init.rs");
+        let dest_path = PathBuf::from(&out_dir).join("init.rs");
 
         let code = quote! {
             pub fn all_types_with<F: ioc::BeanFamily>(ctx: F::Ctx) -> ioc::Result<F::Ctx> {
@@ -182,14 +63,14 @@ impl InitCode {
 }
 
 pub fn build_init_method() {
-    let scanner = Scanner::new("src/main.rs");
+    let scanner = InitScanner::default()
+        .scan_main()
+        .expect("error for scan main");
 
-    let vec = scanner
-        .types_with_derive("Bean")
-        .expect("error for scan bean types");
-
-    InitCode::build_init_method(&vec)
+    scanner
+        .build_init_method()
         .expect("error for build init method");
+
 }
 
 #[cfg(test)]
@@ -203,7 +84,7 @@ mod tests {
 
     #[test]
     fn it_works() {
-        let scanner = Scanner::new("../examples/success/src/main.rs");
+        let scanner = InitScanner::new("../examples/success/src/main.rs");
 
         let vec = scanner.types_with_derive("Bean").expect("exty");
 

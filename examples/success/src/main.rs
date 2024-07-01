@@ -1,8 +1,8 @@
 // examples/hello.rs
 
-mod test;
+use ioc::{Bean, BeanFactory, Context, Init, load_types, run};
 
-use ioc::{Bean, BeanFactory, Context, Init, run, load_types};
+mod test;
 
 mod tt {
     use ioc::Bean;
