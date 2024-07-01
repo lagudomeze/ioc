@@ -27,4 +27,5 @@ macro_rules! load_config {
 mod bean;
 mod error;
 mod config;
+mod types;
 

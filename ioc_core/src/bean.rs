@@ -69,6 +69,9 @@ pub trait BeanFactory {
 
     /// Constructs an instance of the bean using the provided context.
     fn build(ctx: &mut Context) -> crate::Result<Self::Bean>;
+
+    /// Performs any necessary cleanup when the bean is being destroyed.
+    fn destroy(_product: &Self::Bean) {}
 }
 
 /// The `Bean` trait extends `BeanFactory` with additional functionality for managing bean lifecycle within the IoC container.
@@ -97,9 +100,6 @@ pub trait Bean: BeanFactory<Bean: 'static + Sized> {
     {
         ctx.get_or_init::<Self>()
     }
-
-    /// Performs any necessary cleanup when the bean is being destroyed.
-    fn destroy(_product: &Self::Bean) {}
 
     /// Returns the name of the bean, which is used for identification within the IoC container.
     fn name() -> &'static str {
