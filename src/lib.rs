@@ -94,18 +94,20 @@ pub mod log;
 #[macro_export]
 macro_rules! run {
     ($($field:ident = $value:expr),* $(,)?) => {
-        use ioc::*;
+        {
+            use ioc::*;
 
-        log_init()?;
+            log_init()?;
 
-        let loader = load_config!($($field: $value,)*);
+            let loader = load_config!($($field: $value,)*);
 
-        let config = loader.load()?;
+            let config = loader.load()?;
 
-        let mut ctx = Context::new(config);
+            let mut ctx = Context::new(config);
 
-        all_types_with::<Init>(&mut ctx)?;
+            all_types_with::<Init>(&mut ctx)?;
 
-        ctx.complete()
+            ctx.complete()
+        }
     }
 }

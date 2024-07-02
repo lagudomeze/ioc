@@ -43,10 +43,15 @@ impl TypesMethodBuilder for MvcInitScanner {
         let types = &scanner.types;
 
         Ok(quote! {
-            use simply_poem::openapi::OpenApiService;
-
-            pub fn open_api_service() -> OpenApiService {
-                OpenApiService::new((#(crate::#types,)*), "Hello World", "1.0")
+            pub fn open_api_service(title: impl Into<String>, version: impl Into<String>) ->
+            simply_poem::openapi::OpenApiService<(
+                    (#(&'static crate::#types,)*)
+            ),()> {
+                simply_poem::openapi::OpenApiService::new(
+                    (#(crate::#types::get(),)*),
+                    title,
+                    version
+                )
             }
         })
     }
