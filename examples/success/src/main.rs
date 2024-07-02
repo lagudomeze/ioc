@@ -1,4 +1,4 @@
-// examples/hello.rs
+// examples/main
 
 use ioc::{Bean, BeanFactory, Context, Init, load_types, run};
 
