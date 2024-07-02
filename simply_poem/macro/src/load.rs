@@ -44,10 +44,10 @@ impl TypesMethodBuilder for MvcInitScanner {
 
         Ok(quote! {
             pub fn open_api_service(title: impl Into<String>, version: impl Into<String>) ->
-            simply_poem::openapi::OpenApiService<(
+            simply_poem::OpenApiService<(
                     (#(&'static crate::#types,)*)
             ),()> {
-                simply_poem::openapi::OpenApiService::new(
+                simply_poem::OpenApiService::new(
                     (#(crate::#types::get(),)*),
                     title,
                     version
