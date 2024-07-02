@@ -72,9 +72,6 @@
 //! ```
 
 
-#[doc(hidden)]
-pub use linkme::{self, *};
-
 pub use ioc_core::{
     AppConfigLoader,
     Bean,
@@ -88,7 +85,6 @@ pub use ioc_core::{
     Init,
     Wrapper
 };
-use ioc_core::DropGuard;
 pub use ioc_derive::{Bean, preload_mods, load_config, load_types};
 pub use log::{log_init, LogPatcher};
 
@@ -112,28 +108,4 @@ macro_rules! run {
 
         ctx.complete()
     }
-}
-/// This is a global-distributed slice used to collect all bean factory functions.
-#[doc(hidden)]
-#[distributed_slice]
-pub static BEAN_COLLECTOR: [fn(&mut Context) -> Result<()>] = [..];
-
-/// Runs the application, initializes all beans, and completes dependency injection.
-///
-/// # Parameters
-///
-/// * `loader` - A configuration [loader](AppConfigLoader) to load [configuration](Config).
-///
-/// # Returns
-///
-/// If the application runs successfully, it returns `Ok(())`. If an error occurs during the run, it returns `Err(IocError)`.
-pub fn run_app(loader: AppConfigLoader) -> Result<DropGuard> {
-
-    let  config = loader.load()?;
-    let mut ctx = Context::new(config);
-    for collect in BEAN_COLLECTOR {
-        collect(&mut ctx)?;
-    }
-
-    Ok(ctx.complete())
 }

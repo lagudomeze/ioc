@@ -1,6 +1,6 @@
 // examples/main
 
-use ioc::{Bean, BeanFactory, Context, Init, load_types, run};
+use ioc::{Bean, BeanFactory, Context, load_types, run};
 
 mod test;
 
@@ -58,7 +58,7 @@ impl BeanFactory for AnotherBeanA {
     }
 }
 
-load_types!();
+load_types!(root = "examples/success/src/main.rs");
 
 fn main() -> anyhow::Result<()> {
     run!(dir = "./", profile = "dev");

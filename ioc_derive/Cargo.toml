@@ -14,6 +14,8 @@ serde = { workspace = true, features = [
 syn = { workspace = true }
 toml = { workspace = true }
 thiserror = { workspace = true }
+ioc_scan = { workspace = true }
+darling = { workspace = true }
 
 [lib]
 proc-macro = true

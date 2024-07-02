@@ -1,17 +1,19 @@
 use proc_macro::TokenStream;
 
-use proc_macro2::{Ident, Span};
 use quote::{format_ident, quote};
-use syn::{DeriveInput, Error, FieldValue, parse_macro_input, spanned::Spanned, Type, TypeReference};
-use syn::Member::Named;
-use syn::parse::{Parse, ParseStream};
-use syn::punctuated::Punctuated;
-use syn::token::Comma;
+use syn::{DeriveInput, Error, FieldValue, Member::Named, parse::{Parse, ParseStream}, parse_macro_input, punctuated::Punctuated, spanned::Spanned, token::Comma, Type, TypeReference};
 
 use bean::{FieldAttribute, TypeAttribute};
 
 mod bean;
 mod scan;
+mod load;
+
+#[proc_macro]
+pub fn load_types(input: TokenStream) -> TokenStream {
+    load::load_types(input)
+        .unwrap_or_else(|err| err.write_errors().into())
+}
 
 #[proc_macro]
 pub fn preload_mods(_: TokenStream) -> TokenStream {
@@ -136,30 +138,15 @@ pub fn bean_definition(input: TokenStream) -> TokenStream {
         }
     };
 
-    let register_method = Ident::new(&format!("__register_bean_{}", bean_name), Span::call_site());
-
-    let bean_register = quote! {
-        #[allow(non_snake_case)]
-        #[::ioc::distributed_slice(::ioc::BEAN_COLLECTOR)]
-        #[linkme(crate = ::ioc::linkme)]
-        fn #register_method(ctx: &mut ::ioc::Context) -> ::ioc::Result<()>  {
-            ctx.get_or_init::<#name>()?;
-            Ok(())
-        }
-    };
-
     let expanded = quote! {
 
         #bean_factory_impl
 
         #bean_impl
-
-        #bean_register
     };
 
     TokenStream::from(expanded)
 }
-
 
 struct LoadConfigParam {
     fields: Punctuated<FieldValue, Comma>,
@@ -215,15 +202,6 @@ pub fn load_config(input: TokenStream) -> TokenStream {
                 #(#fields,)*
             }
         }
-    };
-
-    expanded.into()
-}
-
-#[proc_macro]
-pub fn load_types(_: TokenStream) -> TokenStream {
-    let expanded = quote! {
-        include!(concat!(env!("OUT_DIR"), "/init.rs"));
     };
 
     expanded.into()

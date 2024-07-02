@@ -5,7 +5,6 @@ edition = "2021"
 
 [dependencies]
 simply_poem_macro = { workspace = true }
-linkme = { workspace = true }
 
 [dependencies.poem-openapi]
 workspace = true
