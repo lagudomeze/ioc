@@ -2,10 +2,11 @@ use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{ItemStruct, Path, PathSegment};
 
-use crate::{
+pub use crate::{
     error::{Error, Result},
     module::{ModuleInfo, Scanner},
 };
+use crate::module::Scanners;
 
 mod error;
 mod module;
@@ -41,8 +42,28 @@ impl Scanner for InitScanner {
     }
 }
 
-impl InitScanner {
-    pub fn build_all_types_with(self, file: &str) -> Result<TokenStream> {
+pub trait TypesMethodBuilder {
+    fn build_types_with(self, file: &str) -> Result<TokenStream>;
+}
+
+impl<T, U> TypesMethodBuilder for Scanners<T, U>
+where
+    T: TypesMethodBuilder + Scanner,
+    U: TypesMethodBuilder + Scanner,
+{
+    fn build_types_with(self, file: &str) -> Result<TokenStream> {
+        let lft = self.lft.build_types_with(file)?;
+        let rht = self.rht.build_types_with(file)?;
+
+        Ok(quote! {
+            #lft
+            #rht
+        })
+    }
+}
+
+impl TypesMethodBuilder for InitScanner {
+    fn build_types_with(self, file: &str) -> Result<TokenStream> {
         let scanner = self.scan(file)?;
 
         let types = &scanner.types;
@@ -66,7 +87,7 @@ mod tests {
     #[test]
     fn it_works() -> Result<()> {
         let code = InitScanner::default()
-            .build_all_types_with("../examples/success/src/main.rs")?;
+            .build_types_with("../examples/success/src/main.rs")?;
 
         let func = parse_quote!( #code );
 

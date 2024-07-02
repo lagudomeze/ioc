@@ -1,11 +1,11 @@
-use std::mem::swap;
 use std::{fs::read_to_string, path::PathBuf};
+use std::mem::swap;
 
-use syn::visit::{visit_item_impl, visit_item_struct};
 use syn::{
-    visit::{visit_item_mod, Visit},
-    Ident, ItemImpl, ItemMod, ItemStruct, Path, PathSegment,
+    Ident,
+    ItemImpl, ItemMod, ItemStruct, Path, PathSegment, visit::{Visit, visit_item_mod},
 };
+use syn::visit::{visit_item_impl, visit_item_struct};
 use thiserror::__private::AsDisplay;
 
 use crate::{Error, Result};
@@ -69,6 +69,13 @@ pub trait Scanner {
         Ok(())
     }
 
+    fn join<U>(self, rht: U) -> Scanners<Self, U> where Self: Sized {
+        Scanners {
+            lft: self,
+            rht,
+        }
+    }
+
     fn scan(self, file: &str) -> Result<Self>
     where
         Self: Sized,
@@ -84,6 +91,27 @@ pub trait Scanner {
             scanner: self,
         };
         visit.scan()
+    }
+}
+
+pub struct Scanners<T, U> {
+    pub(crate) lft: T,
+    pub(crate) rht: U,
+}
+
+impl<T, U> Scanner for Scanners<T, U>
+where
+    T: Scanner,
+    U: Scanner,
+{
+    fn item_struct(&mut self, module_info: &ModuleInfo, i: &ItemStruct) -> Result<()> {
+        self.lft.item_struct(module_info, i)?;
+        self.rht.item_struct(module_info, i)
+    }
+
+    fn item_impl(&mut self, module_info: &ModuleInfo, i: &ItemImpl) -> Result<()> {
+        self.lft.item_impl(module_info, i)?;
+        self.rht.item_impl(module_info, i)
     }
 }
 

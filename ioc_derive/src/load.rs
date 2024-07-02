@@ -2,7 +2,7 @@ use proc_macro::TokenStream;
 
 use darling::{ast::NestedMeta, Error, FromMeta, Result};
 
-use ioc_scan::InitScanner;
+use ioc_scan::{InitScanner, TypesMethodBuilder};
 
 #[derive(Default, FromMeta)]
 #[darling(default)]
@@ -20,7 +20,7 @@ pub fn load_types(input: TokenStream) -> Result<TokenStream> {
         .unwrap_or("src/main.rs");
 
     let expanded = InitScanner::default()
-        .build_all_types_with(root)
+        .build_types_with(root)
         .map_err(|err| Error::custom(err))?;
 
     Ok(expanded.into())
