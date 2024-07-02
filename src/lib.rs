@@ -93,7 +93,7 @@ pub mod log;
 #[macro_export]
 macro_rules! run {
     ($($field:ident = $value:expr),* $(,)?) => {
-        use ioc::{load_config, log_init, preload_mods, run_app};
+        use ioc::{load_config, log_init, preload_mods, run_app, Context};
 
         log_init()?;
 
