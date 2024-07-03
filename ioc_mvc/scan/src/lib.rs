@@ -40,10 +40,10 @@ impl Transport for Mvcs {
 
         Ok(quote! {
             // here only support current crate mvc scan
-            pub fn all_mvcs<T>(api:T) -> impl poem_openapi::OpenApi
-                where T: poem_openapi::OpenApi {
-                #(let api = api.join(crate::#types::get());)*
-                api
+            pub fn all_mvcs<T>(api:T) -> impl ioc::OpenApiExt
+                where T: ioc::OpenApiExt {
+                use ioc::OpenApiExt;
+                api.join((#(crate::#types::get(),)*))
             }
         })
     }
