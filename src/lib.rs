@@ -94,7 +94,7 @@ pub use ioc_core::{
 pub use ioc_core_derive::{Bean, load_config};
 pub use ioc_macro::{export, import};
 #[cfg(feature = "mvc")]
-pub use ioc_mvc::{mvc, run_mvc};
+pub use ioc_mvc::{mvc, run_mvc, OpenApi};
 pub use log::{log_init, LogPatcher};
 
 pub mod log;

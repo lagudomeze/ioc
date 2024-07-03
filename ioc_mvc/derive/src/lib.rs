@@ -132,7 +132,7 @@ impl ItemImplPatch {
                     #(#methods_for_traits)*
                 }
 
-                #[simply_poem::OpenApi]
+                #[ioc::OpenApi]
                 #(#attrs_for_impl)*
                 impl #api_trait for &'static #raw_type {
                     #(#methods)*
