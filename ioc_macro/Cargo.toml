@@ -16,5 +16,5 @@ ioc_mvc_scan = { workspace = true, optional = true }
 proc-macro = true
 
 [features]
-default = ["mvc"]
+default = []
 mvc = ["dep:ioc_mvc_scan"]

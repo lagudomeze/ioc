@@ -25,6 +25,7 @@ mvc = ["ioc_macro/mvc", "dep:ioc_mvc"]
 
 [dev-dependencies]
 anyhow = { workspace = true }
+poem-openapi = { workspace = true }
 
 [workspace]
 members = [

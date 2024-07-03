@@ -23,7 +23,7 @@ where
     fn run(ctx: Self::Ctx) -> crate::Result<Self::Ctx>
     where
     {
-        B::holder().get_or_try_init(|| B::build(ctx))?;
+        ctx.get_or_init::<B>()?;
         debug!("Init bean of {} with type {}", B::name(), B::bean_type_name());
         Ok(ctx)
     }
