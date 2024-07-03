@@ -37,7 +37,7 @@ mod tracing_log {
         reload::Handle,
     };
 
-    use ioc_core::{Bean};
+    use ioc_core::Bean;
 
     pub fn log_init() -> crate::Result<()> {
         let filter = EnvFilter::builder()
@@ -62,7 +62,7 @@ mod tracing_log {
     impl LogPatcher {
         pub fn reload<'a, I>(&self, value: I) -> crate::Result<()>
         where
-            I: Iterator<Item: AsRef<str>>,
+            I: IntoIterator<Item: AsRef<str>>,
         {
             let mut env_filter = EnvFilter::from_default_env();
             for i in value {
