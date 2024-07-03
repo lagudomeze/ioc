@@ -1,0 +1,14 @@
+[package]
+name = "ioc_mvc_scan"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+ioc_scan = { workspace = true }
+syn = { workspace = true }
+proc-macro2 = { workspace = true }
+quote = { workspace = true }
+darling = {workspace = true}
+
+[dev-dependencies]
+prettyplease = { workspace = true }

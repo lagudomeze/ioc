@@ -82,7 +82,7 @@ pub trait BeanFactory {
 #[diagnostic::on_unimplemented(
     message = "Bean is not implemented for this type `{Self}`",
     label = "implement Bean for this type",
-    note = " add Bean macro for this type
+    note = " add Bean derive for this type
     #[derive(Bean)]
     struct YourType {{
         ...

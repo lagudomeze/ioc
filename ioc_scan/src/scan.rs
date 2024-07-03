@@ -34,7 +34,7 @@ pub struct ModuleInfo {
 }
 
 impl ModuleInfo {
-    fn new(module_path: Path, file: PathBuf) -> Self {
+    pub(crate) fn new(module_path: Path, file: PathBuf) -> Self {
         Self { module_path, file }
     }
 
@@ -55,9 +55,18 @@ impl ModuleInfo {
     }
 }
 
-pub struct ScanVisit<T> {
+pub(crate) struct ScanVisit<T> {
     module_info: ModuleInfo,
     scanner: T,
+}
+
+impl<T> ScanVisit<T> {
+    pub(crate) fn new(module_info: ModuleInfo, scanner: T) -> Self {
+        Self {
+            module_info,
+            scanner,
+        }
+    }
 }
 
 pub trait Scanner {
@@ -67,51 +76,6 @@ pub trait Scanner {
 
     fn item_impl(&mut self, _module_info: &ModuleInfo, _i: &ItemImpl) -> Result<()> {
         Ok(())
-    }
-
-    fn join<U>(self, rht: U) -> Scanners<Self, U> where Self: Sized {
-        Scanners {
-            lft: self,
-            rht,
-        }
-    }
-
-    fn scan(self, file: &str) -> Result<Self>
-    where
-        Self: Sized,
-    {
-        let module_path = Path {
-            leading_colon: None,
-            segments: Default::default(),
-        };
-        let file = PathBuf::from(file);
-        let module_info = ModuleInfo::new(module_path, file);
-        let visit = ScanVisit {
-            module_info,
-            scanner: self,
-        };
-        visit.scan()
-    }
-}
-
-pub struct Scanners<T, U> {
-    pub(crate) lft: T,
-    pub(crate) rht: U,
-}
-
-impl<T, U> Scanner for Scanners<T, U>
-where
-    T: Scanner,
-    U: Scanner,
-{
-    fn item_struct(&mut self, module_info: &ModuleInfo, i: &ItemStruct) -> Result<()> {
-        self.lft.item_struct(module_info, i)?;
-        self.rht.item_struct(module_info, i)
-    }
-
-    fn item_impl(&mut self, module_info: &ModuleInfo, i: &ItemImpl) -> Result<()> {
-        self.lft.item_impl(module_info, i)?;
-        self.rht.item_impl(module_info, i)
     }
 }
 
@@ -165,7 +129,7 @@ where
 }
 
 impl<'ast, T: Scanner> ScanVisit<T> {
-    fn scan(mut self) -> Result<T> {
+    pub(crate) fn scan(mut self) -> Result<T> {
         let string = read_to_string(&self.module_info.file)?;
         let file = syn::parse_file(&string)?;
         self.visit_file(&file);

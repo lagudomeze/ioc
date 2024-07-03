@@ -18,8 +18,6 @@ use syn::{
     visit_mut::VisitMut,
 };
 
-mod load;
-
 struct ApiTraitInfo {
     raw_type: Ident,
     api_trait: Ident,
@@ -165,10 +163,4 @@ pub fn mvc(_attr: TokenStream, item: TokenStream) -> TokenStream {
     };
 
     TokenStream::from(expanded)
-}
-
-#[proc_macro]
-pub fn load_types(input: TokenStream) -> TokenStream {
-    load::load_types(input)
-        .unwrap_or_else(|err| err.write_errors().into())
 }

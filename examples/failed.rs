@@ -1,6 +1,6 @@
 // examples/hello.rs
 
-use ioc::{run, Bean, load_types};
+use ioc::{run, Bean, export};
 
 #[derive(Bean)]
 #[name("aaa")]
@@ -22,7 +22,7 @@ struct C {
     #[inject(crate::B)]
     _b: &'static B,
 }
-load_types!(root = "examples/failed.rs");
+export!(root = "examples/failed.rs");
 
 fn main() -> anyhow::Result<()> {
     run!();

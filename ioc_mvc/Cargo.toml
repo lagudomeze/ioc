@@ -1,0 +1,21 @@
+[package]
+name = "ioc_mvc"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+ioc_mvc_derive = { workspace = true }
+ioc_core = { workspace = true }
+ioc_core_derive = { workspace = true }
+tracing = "0.1"
+
+[dependencies.poem]
+version = "3"
+
+[dependencies.poem-openapi]
+workspace = true
+features = ["swagger-ui"]
+
+[dependencies.tokio]
+version = "1"
+features = ["rt-multi-thread", "signal"]

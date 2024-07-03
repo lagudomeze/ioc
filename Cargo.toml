@@ -11,7 +11,9 @@ env_logger = { workspace = true, optional = true }
 tracing = { workspace = true, optional = true }
 tracing-subscriber = { workspace = true, optional = true, features = ["env-filter"] }
 ioc_core = { workspace = true }
-ioc_derive = { workspace = true }
+ioc_core_derive = { workspace = true }
+ioc_mvc = { workspace = true, optional = true }
+ioc_macro = { workspace = true }
 log = { workspace = true }
 thiserror = { workspace = true }
 anyhow = { workspace = true }
@@ -19,12 +21,22 @@ anyhow = { workspace = true }
 [features]
 default = ["tracing_log"]
 tracing_log = ["tracing-subscriber", "tracing"]
+mvc = ["ioc_macro/mvc", "dep:ioc_mvc"]
 
 [dev-dependencies]
 anyhow = { workspace = true }
 
 [workspace]
-members = ["examples/success", "ioc_core", "ioc_derive", "simply_poem", "simply_poem/macro", "ioc_scan"]
+members = [
+    "examples/success",
+    "ioc_core",
+    "ioc_core/derive",
+    "ioc_mvc",
+    "ioc_mvc/derive",
+    "ioc_mvc/scan",
+    "ioc_scan",
+    "ioc_macro"
+]
 
 [workspace.dependencies]
 cfg-rs = { version = "0.4", features = ["full"] }
@@ -39,15 +51,17 @@ proc-macro2 = "1"
 quote = "1"
 serde = { version = "1" }
 toml = "0.8"
-ioc_core = { path = "./ioc_core" }
-ioc_derive = { path = "./ioc_derive" }
-ioc_scan = { path = "./ioc_scan" }
-simply_poem = { path = "./simply_poem" }
-simply_poem_macro = { path = "./simply_poem/macro" }
 poem = { version = "3" }
 poem-openapi = { version = "5" }
 prettyplease = { version = "0.2" }
 darling = { version = "0.20" }
+ioc_scan = { path = "./ioc_scan" }
+ioc_core = { path = "./ioc_core" }
+ioc_core_derive = { path = "ioc_core/derive" }
+ioc_mvc = { path = "ioc_mvc" }
+ioc_mvc_derive = { path = "ioc_mvc/derive" }
+ioc_mvc_scan = { path = "ioc_mvc/scan" }
+ioc_macro = { path = "ioc_macro", default-features = false  }
 
 [workspace.dependencies.syn]
 version = "2"

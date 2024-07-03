@@ -9,7 +9,10 @@ anyhow = "1.0.86"
 
 [dependencies.ioc]
 path = "../.."
-features = ["tracing_log"]
+features = ["tracing_log", "mvc"]
 
 [build-dependencies.ioc_scan]
 path = "../../ioc_scan"
+
+[dependencies.poem-openapi]
+workspace = true

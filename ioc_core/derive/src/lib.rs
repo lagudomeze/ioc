@@ -7,14 +7,8 @@ use bean::{FieldAttribute, TypeAttribute};
 
 mod bean;
 mod scan;
-mod load;
 
-#[proc_macro]
-pub fn load_types(input: TokenStream) -> TokenStream {
-    load::load_types(input)
-        .unwrap_or_else(|err| err.write_errors().into())
-}
-
+#[deprecated(note = "Use `import/export macro` instead")]
 #[proc_macro]
 pub fn preload_mods(_: TokenStream) -> TokenStream {
     use scan::CargoToml;
@@ -49,7 +43,7 @@ pub fn bean_definition(input: TokenStream) -> TokenStream {
 
     let fields = match input.data {
         syn::Data::Struct(ref data_struct) => &data_struct.fields,
-        _ => panic!("Bean derive macro only works with structs"),
+        _ => panic!("Bean derive derive only works with structs"),
     };
 
     let mut custom_factory = false;
@@ -104,10 +98,10 @@ pub fn bean_definition(input: TokenStream) -> TokenStream {
         quote! {}
     } else {
         quote! {
-            impl ::ioc::BeanFactory for #name {
+            impl ioc::BeanFactory for #name {
                 type Bean = Self;
 
-                fn build(ctx: &mut ::ioc::Context) -> ioc::Result<Self::Bean> {
+                fn build(ctx: &mut ioc::Context) -> ioc::Result<Self::Bean> {
                     Ok(Self::Bean {
                         #(#field_initializers),*
                     })
@@ -125,7 +119,7 @@ pub fn bean_definition(input: TokenStream) -> TokenStream {
     };
 
     let bean_impl = quote! {
-        impl ::ioc::Bean for #name {
+        impl ioc::Bean for #name {
 
             fn name() -> &'static str {
                 #bean_name

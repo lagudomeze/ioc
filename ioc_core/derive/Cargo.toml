@@ -1,5 +1,5 @@
 [package]
-name = "ioc_derive"
+name = "ioc_core_derive"
 edition = "2021"
 version = "0.1.0"
 
@@ -19,3 +19,4 @@ darling = { workspace = true }
 
 [lib]
 proc-macro = true
+

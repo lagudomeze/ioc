@@ -1,6 +1,6 @@
 // examples/hello.rs
 
-use ioc::{Bean, run, BeanFactory, Context, load_types};
+use ioc::{Bean, run, BeanFactory, Context, export};
 
 #[derive(Bean)]
 struct B {
@@ -45,7 +45,7 @@ impl BeanFactory for AnotherBeanA {
         })
     }
 }
-load_types!(root = "examples/hello.rs");
+export!(root = "examples/hello.rs");
 
 fn main() -> anyhow::Result<()> {
     run!(dir = "./", profile = "dev");

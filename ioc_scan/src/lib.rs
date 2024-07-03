@@ -1,93 +1,52 @@
+use std::path::PathBuf;
+
 use proc_macro2::TokenStream;
-use quote::quote;
-use syn::{ItemStruct, Path, PathSegment};
+use syn::Path;
 
 pub use crate::{
     error::{Error, Result},
-    module::{ModuleInfo, Scanner},
+    scan::{ModuleInfo, Scanner},
+    transport::Transport,
+    beans::Beans,
 };
-use crate::module::Scanners;
+use crate::scan::ScanVisit;
 
 mod error;
-mod module;
+mod scan;
+mod transport;
+mod beans;
 
-#[derive(Debug)]
-pub struct InitScanner {
-    types: Vec<Path>,
-}
-
-impl Default for InitScanner {
-    fn default() -> Self {
-        Self {
-            types: Vec::new(),
-        }
-    }
-}
-
-impl Scanner for InitScanner {
-    fn item_struct(&mut self, module_info: &ModuleInfo, i: &ItemStruct) -> Result<()> {
-        for attr in i.attrs.iter() {
-            if attr.path().is_ident("derive") {
-                attr.parse_nested_meta(|meta| {
-                    if meta.path.is_ident("Bean") {
-                        let mut find_type = module_info.module_path.clone();
-                        find_type.segments.push(PathSegment::from(i.ident.clone()));
-                        self.types.push(find_type);
-                    }
-                    Ok(())
-                })?;
-            }
-        }
-        Ok(())
-    }
-}
-
-pub trait TypesMethodBuilder {
-    fn build_types_with(self, file: &str) -> Result<TokenStream>;
-}
-
-impl<T, U> TypesMethodBuilder for Scanners<T, U>
+pub fn export<T>(transport: T, file: &str) -> Result<TokenStream>
 where
-    T: TypesMethodBuilder + Scanner,
-    U: TypesMethodBuilder + Scanner,
+    T: Transport,
 {
-    fn build_types_with(self, file: &str) -> Result<TokenStream> {
-        let lft = self.lft.build_types_with(file)?;
-        let rht = self.rht.build_types_with(file)?;
-
-        Ok(quote! {
-            #lft
-            #rht
-        })
-    }
+    let module_path = Path {
+        leading_colon: None,
+        segments: Default::default(),
+    };
+    let file = PathBuf::from(file);
+    let module_info = ModuleInfo::new(module_path, file);
+    let visit = ScanVisit::new(module_info, transport);
+    visit.scan()?.export()
 }
 
-impl TypesMethodBuilder for InitScanner {
-    fn build_types_with(self, file: &str) -> Result<TokenStream> {
-        let scanner = self.scan(file)?;
-
-        let types = &scanner.types;
-
-        Ok(quote! {
-            pub fn all_types_with<F: ioc::BeanFamily>(ctx: F::Ctx) -> ioc::Result<F::Ctx> {
-                use ioc::MethodType;
-                #(let ctx = F::Method::<crate::#types>::run(ctx)?; )*
-                Ok(ctx)
-            }
-        })
-    }
+pub fn import<T>(transport: T, crates: &[String]) -> Result<TokenStream>
+where
+    T: Transport,
+{
+    transport.import(crates)
 }
+
 
 #[cfg(test)]
 mod tests {
     use syn::parse_quote;
-
+    use crate::beans::Beans;
     use super::*;
 
     #[test]
     fn it_works() -> Result<()> {
-        let code = InitScanner::default()
-            .build_types_with("../examples/success/src/main.rs")?;
+        let code = export(Beans::default(), "../examples/success/src/main.rs")?;
 
         let func = parse_quote!( #code );
 

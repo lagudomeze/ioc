@@ -1,0 +1,20 @@
+[package]
+name = "ioc_macro"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+proc-macro2 = { workspace = true }
+quote = { workspace = true }
+syn = { workspace = true }
+thiserror = { workspace = true }
+darling = { workspace = true }
+ioc_scan = { workspace = true }
+ioc_mvc_scan = { workspace = true, optional = true }
+
+[lib]
+proc-macro = true
+
+[features]
+default = ["mvc"]
+mvc = ["dep:ioc_mvc_scan"]

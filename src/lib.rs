@@ -1,6 +1,6 @@
 //! ## ioc - A simple dependency injection library for Rust
 //! `ioc` is a dependency injection library that provides a simple way to manage and resolve dependencies.
-//! ## The [`run!`](run) macro
+//! ## The [`run!`](run) derive
 //!
 //! Used to run the application, initialize all beans, and complete dependency injection.
 //!
@@ -28,7 +28,7 @@
 //! }
 //! ```
 //!
-//! ## The [`Bean`](ioc_derive::Bean) derive macro
+//! ## The [`Bean`](ioc_derive::Bean) derive derive
 //!
 //! Used to define a [bean](ioc_core::Bean), which can automatically implement the [`BeanFactory`] and `Bean` traits.
 //!
@@ -76,19 +76,28 @@ pub use ioc_core::{
     AppConfigLoader,
     Bean,
     BeanFactory,
+    BeanFamily,
     Config,
     Context,
-    IocError,
-    Result,
-    MethodType,
-    BeanFamily,
     Init,
+    IocError,
+    MethodType,
+    Result,
     Wrapper
 };
-pub use ioc_derive::{Bean, preload_mods, load_config, load_types};
+pub use ioc_core_derive::{Bean, load_config};
+pub use ioc_macro::{export, import};
+#[cfg(feature = "mvc")]
+pub use ioc_mvc::{mvc, run_mvc};
 pub use log::{log_init, LogPatcher};
 
 pub mod log;
+
+pub fn pre_init(ctx: &mut Context) -> Result<()> {
+    #[cfg(feature = "mvc")]
+    ctx.get_or_init::<ioc_mvc::WebConfig>()?;
+    Ok(())
+}
 
 /// See module level documentation for more information.
 #[macro_export]
@@ -105,7 +114,9 @@ macro_rules! run {
 
             let mut ctx = Context::new(config);
 
-            all_types_with::<Init>(&mut ctx)?;
+            pre_init(&mut ctx)?;
+
+            import!();
 
             ctx.complete()
         }

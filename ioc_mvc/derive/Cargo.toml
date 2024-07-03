@@ -1,5 +1,5 @@
 [package]
-name = "simply_poem_macro"
+name = "ioc_mvc_derive"
 version = "0.1.0"
 edition = "2021"
 
