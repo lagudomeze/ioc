@@ -9,7 +9,7 @@ anyhow = "1.0.86"
 
 [dependencies.ioc]
 path = "../.."
-features = ["tracing_log", "mvc"]
+features = ["tracing_log"]
 
 [build-dependencies.ioc_scan]
 path = "../../ioc_scan"
