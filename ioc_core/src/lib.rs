@@ -7,24 +7,10 @@ pub use bean::{
     Context,
     DropGuard
 };
-pub use config::{
-    AppConfigLoader, Config,
-};
+pub use config::{AppConfigLoader, Config};
 pub use error::{IocError, Result};
-pub use init::{Wrapper, Init};
+pub use init::{Init, Wrapper};
 pub use types::{BeanFamily, MethodType};
-
-#[macro_export]
-macro_rules! load_config {
-    ($($field:ident = $value:expr),* $(,)?) => {
-        AppConfigLoader {
-            $(
-                $field: $value,
-            )*
-            ..Default::default()
-        }.load()
-    }
- }
 
 mod bean;
 mod error;

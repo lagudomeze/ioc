@@ -1,13 +1,13 @@
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::{ItemImpl, ItemStruct};
+use syn::{ItemImpl, ItemStruct, Path};
 
 use crate::{error::Result, ModuleInfo, scan::Scanner};
 
 pub trait Transport: Scanner {
     fn export(self) -> Result<TokenStream>;
 
-    fn import(self, crates: &[String]) -> Result<TokenStream>;
+    fn import(self, crates: &[Path]) -> Result<TokenStream>;
 
     fn join<U>(self, rht: U) -> Transports<Self, U>
     where
@@ -55,7 +55,7 @@ where
         })
     }
 
-    fn import(self, crates: &[String]) -> Result<TokenStream> {
+    fn import(self, crates: &[Path]) -> Result<TokenStream> {
         let lft = self.lft.import(crates)?;
         let rht = self.rht.import(crates)?;
         Ok(quote! {

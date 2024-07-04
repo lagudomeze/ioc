@@ -16,7 +16,7 @@ mod scan;
 mod transport;
 mod beans;
 
-pub fn export<T>(transport: T, file: &str) -> Result<TokenStream>
+pub fn export<T>(transport: T, file: PathBuf) -> Result<TokenStream>
 where
     T: Transport,
 {
@@ -24,13 +24,12 @@ where
         leading_colon: None,
         segments: Default::default(),
     };
-    let file = PathBuf::from(file);
     let module_info = ModuleInfo::new(module_path, file);
     let visit = ScanVisit::new(module_info, transport);
     visit.scan()?.export()
 }
 
-pub fn import<T>(transport: T, crates: &[String]) -> Result<TokenStream>
+pub fn import<T>(transport: T, crates: &[Path]) -> Result<TokenStream>
 where
     T: Transport,
 {
@@ -46,7 +45,8 @@ mod tests {
 
     #[test]
     fn it_works() -> Result<()> {
-        let code = export(Beans::default(), "../examples/success/src/main.rs")?;
+        let path = PathBuf::from("../examples/success/src/lib.rs");
+        let code = export(Beans::default(), path)?;
 
         let func = parse_quote!( #code );
 

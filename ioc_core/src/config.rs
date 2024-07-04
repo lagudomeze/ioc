@@ -32,9 +32,34 @@ impl Debug for Config {
 }
 
 pub struct AppConfigLoader<'a> {
-    pub name: &'a str,
-    pub dir: &'a str,
-    pub profile: &'a str,
+    name: &'a str,
+    dir: &'a str,
+    profile: &'a str,
+}
+
+impl<'a> AppConfigLoader<'a> {
+    pub fn new() -> Self {
+        Self {
+            name: "app",
+            dir: ".",
+            profile: "prod",
+        }
+    }
+
+    pub fn name(mut self, name: &'a str) -> Self {
+        self.name = name;
+        self
+    }
+
+    pub fn dir(mut self, dir: &'a str) -> Self {
+        self.dir = dir;
+        self
+    }
+
+    pub fn profile(mut self, profile: &'a str) -> Self {
+        self.profile = profile;
+        self
+    }
 }
 
 impl AppConfigLoader<'_> {

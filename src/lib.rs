@@ -29,7 +29,11 @@
 //! fn main() -> ioc::Result<()>{
 //!
 //!     // run!(); // Uses default values for name, dir, and profile
-//!     run!(name = "my_app", dir = ".", profile = "prod");
+//!     run!(deps(),
+//!         name = "my_app",
+//!         dir = ".",
+//!         profile = "prod"
+//!     );
 //!     Ok(())
 //! }
 //! ```
@@ -91,38 +95,63 @@ pub use ioc_core::{
     Result,
     Wrapper
 };
-pub use ioc_core_derive::{Bean, load_config};
+pub use ioc_core_derive::Bean;
 pub use ioc_macro::{export, import};
 #[cfg(feature = "mvc")]
-pub use ioc_mvc::{mvc, run_mvc, OpenApi, OpenApiExt};
-pub use log::{log_init, LogPatcher};
+pub use ioc_mvc::{mvc, OpenApi, OpenApiExt, run_mvc};
 
 pub mod log;
 
-pub fn pre_init(_ctx: &mut Context) -> Result<()> {
-    #[cfg(feature = "mvc")]
-    _ctx.get_or_init::<ioc_mvc::WebConfig>()?;
-    Ok(())
+#[doc(hidden)]
+pub mod __private {
+    pub use ioc_core::{
+        AppConfigLoader,
+        Context,
+        Result,
+    };
+    pub use ioc_macro::import;
+
+    pub use crate::log::LogOptions;
+
+    pub fn pre_init(_ctx: &mut Context) -> Result<()> {
+        #[cfg(feature = "mvc")]
+        _ctx.get_or_init::<ioc_mvc::WebConfig>()?;
+        Ok(())
+    }
 }
 
 /// See module level documentation for more information.
 #[macro_export]
 macro_rules! run {
-    ($($field:ident = $value:expr),* $(,)?) => {
+    (
+        deps($($dep:path),*)
+        $(,self_crate = $self_crate:path)?
+        $(,name = $name:expr)?
+        $(,dir = $dir:expr)?
+        $(,profile = $profile:expr)?
+        $(,debug = $debug:expr)?
+    ) => {
         {
-            use ioc::*;
+            use ioc::__private;
 
-            log_init()?;
+            __private::LogOptions::new()
+                $(.debug($debug))?
+                .init()?;
 
-            let loader = load_config!($($field: $value,)*);
+            let config = __private::AppConfigLoader::new()
+                $(.name($name))?
+                $(.dir($dir))?
+                $(.profile($profile))?
+                .load()?;
 
-            let config = loader.load()?;
+            let mut ctx = __private::Context::new(config);
 
-            let mut ctx = Context::new(config);
+            __private::pre_init(&mut ctx)?;
 
-            pre_init(&mut ctx)?;
-
-            import!();
+            __private::import!(
+                crates($($dep),*),
+                $(self_crate = $self_crate)?
+            );
 
             ctx.complete()
         }

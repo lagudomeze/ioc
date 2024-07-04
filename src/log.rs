@@ -1,10 +1,7 @@
-use std::sync::OnceLock;
-
 #[cfg(feature = "env_logger")]
 pub use env_logger::*;
 pub use log::*;
 
-use ioc_core::{Bean, BeanFactory, Context};
 #[cfg(not(any(feature = "env_logger", feature = "tracing_log")))]
 pub use none::*;
 #[cfg(feature = "tracing_log")]
@@ -15,46 +12,85 @@ compile_error!("feature \"env_logger\" and feature \"tracing_log\" cannot be ena
 
 #[cfg(feature = "env_logger")]
 mod env_logger {
-    use std::sync::OnceLock;
+    use env_logger::{builder, Env};
+    use tracing::level_filters::LevelFilter;
+    use ioc_core::{Bean, BeanFactory};
 
-    use ioc_core::{Bean, BeanFactory, Context};
-
-    #[cfg(feature = "env_logger")]
-    pub fn log_init() -> crate::Result<()> {
-        env_logger::init();
-        Ok(())
+    pub struct LogOptions<'a> {
+        env: Env<'a>,
     }
 
-    pub struct LogPatcher;
+    impl<'a> LogOptions<'a> {
+        pub fn new() -> Self {
+            Self {
+                env: Default::default()
+            }
+        }
+
+        pub fn debug(mut self, debug : bool) -> Self {
+            if debug {
+                self.env = Env::from("RUST_LOG=debug");
+            }
+            self
+        }
+
+        pub fn init(self) -> crate::Result<()> {
+            builder().env(self.env)
+                .try_init()?;
+            Ok(())
+        }
+    }
 }
 
 #[cfg(feature = "tracing_log")]
 mod tracing_log {
-    use tracing::level_filters::LevelFilter;
+    use std::sync::OnceLock;
+
     use tracing_subscriber::{
         EnvFilter,
+        filter::Directive,
+        filter::LevelFilter,
         fmt::Formatter,
-        reload::Handle,
+        reload::Handle
     };
 
-    use ioc_core::Bean;
+    use ioc_core::{Bean, BeanFactory, Context};
 
-    pub fn log_init() -> crate::Result<()> {
-        let filter = EnvFilter::builder()
-            .with_default_directive(LevelFilter::INFO.into())
-            .from_env_lossy();
+    pub struct LogOptions {
+        default_directive: Directive,
+    }
 
-        let builder = tracing_subscriber::fmt()
-            .with_env_filter(filter)
-            .with_filter_reloading();
+    impl LogOptions {
+        pub fn new() -> Self {
+            Self {
+                default_directive: LevelFilter::INFO.into()
+            }
+        }
 
-        let handle = builder.reload_handle();
+        pub fn debug(mut self, debug : bool) -> Self {
+            if debug {
+                self.default_directive = LevelFilter::DEBUG.into();
+            }
+            self
+        }
 
-        builder.init();
+        pub fn init(self) -> crate::Result<()> {
+            let filter = EnvFilter::builder()
+                .with_default_directive(self.default_directive)
+                .from_env_lossy();
 
-        LogPatcher::holder().get_or_init(|| { LogPatcher(handle) });
+            let builder = tracing_subscriber::fmt()
+                .with_env_filter(filter)
+                .with_filter_reloading();
 
-        Ok(())
+            let handle = builder.reload_handle();
+
+            builder.init();
+
+            LogPatcher::holder().get_or_init(|| { LogPatcher(handle) });
+
+            Ok(())
+        }
     }
 
     pub struct LogPatcher(Handle<EnvFilter, Formatter>);
@@ -83,29 +119,39 @@ mod tracing_log {
             Ok(result)
         }
     }
+
+    impl BeanFactory for LogPatcher {
+        type Bean = Self;
+
+        fn build(_ctx: &mut Context) -> ioc_core::Result<Self::Bean> {
+            panic!("do not run here!")
+        }
+    }
+
+    impl Bean for LogPatcher {
+        fn holder<'a>() -> &'a OnceLock<Self::Bean> {
+            static HOLDER: OnceLock<LogPatcher> = OnceLock::new();
+            &HOLDER
+        }
+    }
 }
 
 #[cfg(not(any(feature = "env_logger", feature = "tracing_log")))]
 mod none {
-    pub fn log_init() -> crate::Result<()> {
-        //do nothing
-        Ok(())
-    }
+    pub struct LogOptions;
 
-    pub struct LogPatcher;
-}
+    impl LogOptions {
+        pub fn new() -> Self {
+            Self
+        }
 
-impl BeanFactory for LogPatcher {
-    type Bean = Self;
+        pub fn debug(mut self, _ : bool) -> Self {
+            self
+        }
 
-    fn build(_ctx: &mut Context) -> ioc_core::Result<Self::Bean> {
-        panic!("do not run here!")
-    }
-}
-
-impl Bean for LogPatcher {
-    fn holder<'a>() -> &'a OnceLock<Self::Bean> {
-        static HOLDER: OnceLock<crate::LogPatcher> = OnceLock::new();
-        &HOLDER
+        pub fn init(self) -> crate::Result<()> {
+            println!("no env_logger and tracing_log use your log implement!");
+            Ok(())
+        }
     }
 }

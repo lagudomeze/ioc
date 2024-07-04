@@ -1,38 +1,12 @@
 use proc_macro::TokenStream;
 
-use quote::{format_ident, quote};
-use syn::{DeriveInput, Error, FieldValue, Member::Named, parse::{Parse, ParseStream}, parse_macro_input, punctuated::Punctuated, spanned::Spanned, token::Comma, Type, TypeReference};
+use quote::quote;
+use syn::{DeriveInput, Error, parse_macro_input, spanned::Spanned, Type, TypeReference};
 
 use bean::{FieldAttribute, TypeAttribute};
 
 mod bean;
-mod scan;
-
-#[deprecated(note = "Use `import/export macro` instead")]
-#[proc_macro]
-pub fn preload_mods(_: TokenStream) -> TokenStream {
-    use scan::CargoToml;
-    let toml = CargoToml::current();
-
-    let mut mod_names = vec![];
-    let mut mods = vec![];
-
-    for name in toml.mod_names() {
-        // mod name may contain "-", in `use` statement need replace it to
-        let mod_name = name.replace("-", "_");
-        mods.push(format_ident!("{}", mod_name));
-        mod_names.push(mod_name);
-    }
-
-    let test = format!("{mod_names:?}");
-
-    let expanded = quote! {
-        ioc::log::info!("preload mods: {}", #test);
-        #( use #mods; )*
-    };
-
-    TokenStream::from(expanded)
-}
+mod init;
 
 /// See module level documentation for more information.
 #[proc_macro_derive(Bean, attributes(inject, value, name, custom_factory))]
@@ -140,65 +114,6 @@ pub fn bean_definition(input: TokenStream) -> TokenStream {
     };
 
     TokenStream::from(expanded)
-}
-
-struct LoadConfigParam {
-    fields: Punctuated<FieldValue, Comma>,
-}
-
-impl Parse for LoadConfigParam {
-    fn parse(input: ParseStream) -> syn::Result<Self> {
-        Ok(Self {
-            fields: Punctuated::parse_terminated(input)?
-        })
-    }
-}
-
-#[proc_macro]
-pub fn load_config(input: TokenStream) -> TokenStream {
-    let params = parse_macro_input!(input as LoadConfigParam);
-
-    let mut fields = vec![];
-    let mut name = Some(quote! { env!("CARGO_PKG_NAME") });
-    let mut dir = Some(quote! {"."});
-    let mut profile = Some(quote! {"prod"});
-
-    for field in params.fields {
-        let value = field.expr;
-        if let Named(key) = field.member {
-            fields.push(quote! { #key : #value.as_ref() });
-            if key.eq("name") {
-                name = None;
-            } else if key.eq("dir") {
-                dir = None;
-            } else if key.eq("profile") {
-                profile = None;
-            }
-        }
-    }
-
-    if let Some(value) = name {
-        fields.push(quote! { name : #value.as_ref() });
-    }
-
-    if let Some(value) = dir {
-        fields.push(quote! { dir : #value.as_ref() });
-    }
-
-    if let Some(value) = profile {
-        fields.push(quote! { profile : #value.as_ref() });
-    }
-
-    let expanded = quote! {
-        {
-            use ioc::AppConfigLoader;
-            AppConfigLoader {
-                #(#fields,)*
-            }
-        }
-    };
-
-    expanded.into()
 }
 
 #[allow(unused_imports)]
