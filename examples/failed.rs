@@ -23,8 +23,7 @@ struct C {
     _b: &'static B,
 }
 export!(root = "examples/failed.rs");
-
 fn main() -> anyhow::Result<()> {
-    run!();
+    run!(deps());
     Ok(())
 }

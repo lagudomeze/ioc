@@ -29,7 +29,8 @@
 //! fn main() -> ioc::Result<()>{
 //!
 //!     // run!(); // Uses default values for name, dir, and profile
-//!     run!(deps(),
+//!     run!(
+//!         deps(),
 //!         name = "my_app",
 //!         dir = ".",
 //!         profile = "prod"

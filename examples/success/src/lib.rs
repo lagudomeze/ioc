@@ -55,4 +55,4 @@ impl BeanFactory for AnotherBeanA {
     }
 }
 
-export!(deps());
+export!();

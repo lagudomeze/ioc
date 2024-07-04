@@ -48,7 +48,7 @@ impl Transport for Mvcs {
         })
     }
 
-    fn import(self, crates: &[String]) -> Result<TokenStream> {
+    fn import(self, crates: &[Path]) -> Result<TokenStream> {
         Ok(quote! {
             let api = crate::all_mvcs(());
             #(let api = #crates::all_mvcs(api); )*
@@ -63,13 +63,15 @@ impl Transport for Mvcs {
 
 #[cfg(test)]
 mod tests {
+    use std::path::PathBuf;
     use syn::parse_quote;
     use ioc_scan::export;
     use super::*;
 
     #[test]
     fn it_works() -> Result<()> {
-        let code = export(Mvcs::default(), "../../examples/success/src/main.rs")?;
+        let file = PathBuf::from("../../examples/success/src/main.rs");
+        let code = export(Mvcs::default(), file)?;
 
 
         let func = parse_quote!( #code );

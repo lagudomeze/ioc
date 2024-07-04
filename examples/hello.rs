@@ -45,10 +45,11 @@ impl BeanFactory for AnotherBeanA {
         })
     }
 }
+
 export!(root = "examples/hello.rs");
 
 fn main() -> anyhow::Result<()> {
-    run!(dir = "./", profile = "dev");
+    run!(deps(), dir = "./", profile = "dev");
     println!("{:p}", A::get());
     println!("{:p}", B::get());
     println!("{:p}", B::get()._a);
