@@ -1,7 +1,8 @@
 pub use poem_openapi::{OpenApi, OpenApiService};
 
+use ioc_core::BeanFamily;
 pub use ioc_mvc_derive::mvc;
-pub use server::{WebConfig, run_mvc};
+pub use server::{run_mvc, WebConfig};
 
 mod server;
 

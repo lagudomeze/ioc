@@ -99,8 +99,23 @@ pub use ioc_core_derive::Bean;
 pub use ioc_macro::{export, import};
 #[cfg(feature = "mvc")]
 pub use ioc_mvc::{mvc, OpenApi, OpenApiExt, run_mvc};
+use ioc_mvc::WebConfig;
 
 pub mod log;
+
+pub fn all_beans_with<F: BeanFamily>(ctx: F::Ctx) -> Result<F::Ctx> {
+    use ioc_core::MethodType;
+    let ctx = F::Method::<WebConfig>::run(ctx)?;
+    Ok(ctx)
+}
+
+#[cfg(feature = "mvc")]
+pub fn all_mvcs<T>(api: T) -> impl OpenApiExt
+where
+    T: OpenApiExt,
+{
+    api
+}
 
 #[doc(hidden)]
 pub mod __private {
@@ -183,16 +198,11 @@ macro_rules! run {
                 $(dir = $dir;)?
                 $(profile = $profile;)?
             );
-            {
-                use ioc::__private;
-
-                __private::pre_init(&mut ctx)?;
-            }
 
             // import and run mvc(maybe)
             $crate::import!(
                 $(use_crate = $use_crate,)?
-                $(crates($($dep_crate),*))?
+                $(crates(ioc,$($dep_crate),*))?
             );
 
             ctx.complete()
