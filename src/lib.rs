@@ -98,13 +98,13 @@ pub use ioc_core::{
 pub use ioc_core_derive::Bean;
 pub use ioc_macro::{export, import};
 #[cfg(feature = "mvc")]
-pub use ioc_mvc::{mvc, OpenApi, OpenApiExt, run_mvc};
-use ioc_mvc::WebConfig;
+pub use ioc_mvc::{mvc, OpenApi, OpenApiExt, run_mvc, WebConfig};
 
 pub mod log;
 
 pub fn all_beans_with<F: BeanFamily>(ctx: F::Ctx) -> Result<F::Ctx> {
     use ioc_core::MethodType;
+    use ioc_mvc::WebConfig;
     let ctx = F::Method::<WebConfig>::run(ctx)?;
     Ok(ctx)
 }
