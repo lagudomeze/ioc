@@ -59,16 +59,9 @@ impl Transport for Beans {
         })
     }
 
-    fn import(self, crates: &[Path], use_crate: bool) -> crate::Result<TokenStream> {
-        if use_crate {
-            Ok(quote! {
-                crate::all_beans_with::<ioc::Init>(&mut ctx)?;
-                #(#crates::all_beans_with::<ioc::Init>(&mut ctx)?; )*
-            })
-        } else {
-            Ok(quote! {
-                #(#crates::all_beans_with::<ioc::Init>(&mut ctx)?; )*
-            })
-        }
+    fn import(self, crates: &[Path]) -> crate::Result<TokenStream> {
+        Ok(quote! {
+            #(#crates::all_beans_with::<ioc::Init>(&mut ctx)?; )*
+        })
     }
 }

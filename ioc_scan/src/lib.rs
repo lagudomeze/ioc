@@ -4,10 +4,10 @@ use proc_macro2::TokenStream;
 use syn::Path;
 
 pub use crate::{
+    beans::Beans,
     error::{Error, Result},
     scan::{ModuleInfo, Scanner},
     transport::Transport,
-    beans::Beans,
 };
 use crate::scan::ScanVisit;
 
@@ -29,18 +29,20 @@ where
     visit.scan()?.export()
 }
 
-pub fn import<T>(transport: T, crates: &[Path], use_crate: bool) -> Result<TokenStream>
+pub fn import<T>(transport: T, crates: &[Path]) -> Result<TokenStream>
 where
     T: Transport,
 {
-    transport.import(crates, use_crate)
+    transport.import(crates)
 }
 
 
 #[cfg(test)]
 mod tests {
     use syn::parse_quote;
+
     use crate::beans::Beans;
+
     use super::*;
 
     #[test]

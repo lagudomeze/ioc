@@ -2,10 +2,9 @@
 
 use proc_macro::TokenStream;
 
-mod export;
 
+mod export;
 mod import;
-mod run;
 
 #[proc_macro]
 pub fn export(input: TokenStream) -> TokenStream {
@@ -14,7 +13,8 @@ pub fn export(input: TokenStream) -> TokenStream {
 }
 
 #[proc_macro]
-pub fn run(input: TokenStream) -> TokenStream {
-    run::generate(input)
+pub fn import(input: TokenStream) -> TokenStream {
+    import::generate(input)
         .unwrap_or_else(|err| err.write_errors().into())
 }
+

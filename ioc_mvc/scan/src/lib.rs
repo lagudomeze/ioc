@@ -48,26 +48,12 @@ impl Transport for Mvcs {
         })
     }
 
-    fn import(self, crates: &[Path], use_crate: bool) -> Result<TokenStream> {
-        let build_api = if use_crate {
-            quote! {
-                let api = crate::all_mvcs(());
-                #(let api = #crates::all_mvcs(api); )*
-            }
-        } else {
-            quote! {
-                let api = ();
-                #(let api = #crates::all_mvcs(api); )*
-            }
-        };
-
-
+    fn import(self, crates: &[Path]) -> Result<TokenStream> {
         Ok(quote! {
-            #build_api
+            #(let api = #crates::all_mvcs(api); )*
 
             let name = std::env!("CARGO_PKG_NAME");
             let version = std::env!("CARGO_PKG_VERSION");
-
             ioc::run_mvc(api, name, version)?;
         })
     }

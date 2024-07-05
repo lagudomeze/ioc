@@ -1,6 +1,6 @@
 // examples/hello.rs
 
-use ioc::{Bean, run, BeanFactory, Context, export};
+use ioc::{Bean, BeanFactory, Context, export, run};
 
 #[derive(Bean)]
 struct B {
@@ -49,7 +49,10 @@ impl BeanFactory for AnotherBeanA {
 export!(root = "examples/hello.rs");
 
 fn main() -> anyhow::Result<()> {
-    run!(dir = "./", profile = "dev");
+    let _ = run!(
+        debug = true;
+        profile = "dev";
+    );
     println!("{:p}", A::get());
     println!("{:p}", B::get());
     println!("{:p}", B::get()._a);
