@@ -50,6 +50,7 @@ impl Transport for Mvcs {
 
     fn import(self, crates: &[Path]) -> Result<TokenStream> {
         Ok(quote! {
+            let api = ();
             #(let api = #crates::all_mvcs(api); )*
 
             let name = std::env!("CARGO_PKG_NAME");
