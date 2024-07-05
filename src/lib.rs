@@ -104,7 +104,7 @@ pub mod log;
 
 pub fn all_beans_with<F: BeanFamily>(ctx: F::Ctx) -> Result<F::Ctx> {
     use ioc_core::MethodType;
-    use ioc_mvc::WebConfig;
+    #[cfg(feature = "mvc")]
     let ctx = F::Method::<WebConfig>::run(ctx)?;
     Ok(ctx)
 }
