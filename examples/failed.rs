@@ -24,6 +24,6 @@ struct C {
 }
 export!(root = "examples/failed.rs");
 fn main() -> anyhow::Result<()> {
-    run!(deps());
+    run!();
     Ok(())
 }

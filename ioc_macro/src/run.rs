@@ -1,9 +1,9 @@
 use proc_macro::TokenStream;
 
-use darling::{ast::NestedMeta, Error, FromMeta, util::PathList};
+use darling::{ast::NestedMeta, FromMeta, util::PathList};
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
-use syn::{LitBool, LitStr, parse_quote, Path, spanned::Spanned};
+use syn::{LitBool, LitStr};
 
 #[derive(Default, FromMeta)]
 #[darling(default)]
@@ -12,6 +12,7 @@ struct RunParam {
     dir: Option<LitStr>,
     profile: Option<LitStr>,
     debug: Option<LitBool>,
+    use_crate: Option<LitBool>,
     crates: PathList,
 }
 
@@ -19,13 +20,12 @@ struct RunParam {
 pub(crate) fn generate(input: TokenStream) -> darling::Result<TokenStream> {
     let stream: TokenStream2 = input.into();
 
-    let source_file = stream.span().source_file().path();
-
     let RunParam {
         debug,
         name,
         dir,
         profile,
+        use_crate,
         crates
     } = {
         let metas = NestedMeta::parse_meta_list(stream)?;
@@ -71,23 +71,12 @@ pub(crate) fn generate(input: TokenStream) -> darling::Result<TokenStream> {
     };
 
     let import_code = {
-        let mut crates = crates.iter().cloned().collect::<Vec<_>>();
-        if source_file.ends_with("main.rs") {
-            let lib = source_file
-                .parent()
-                .expect("`main.rs`'s parent should be in a directory")
-                .join("lib.rs");
-            if !lib.exists() {
-                let path : Path = parse_quote! { crate };
-                crates.push(path);
-            } else {
-                eprintln!("`lib.rs` exists, please use `import!` in `lib.rs` and import your crate with `crates` attribute in run!.");
-            }
-        } else {
-            return Err(Error::custom("This macro can only be used in main.rs"));
-        }
+        let use_crate = use_crate
+            .as_ref()
+            .map(LitBool::value)
+            .unwrap_or(true);
 
-        crate::import::generate(&crates)?
+        crate::import::generate(&crates, use_crate)?
     };
 
     let expanded = quote! {

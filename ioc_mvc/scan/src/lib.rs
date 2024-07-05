@@ -48,10 +48,22 @@ impl Transport for Mvcs {
         })
     }
 
-    fn import(self, crates: &[Path]) -> Result<TokenStream> {
+    fn import(self, crates: &[Path], use_crate: bool) -> Result<TokenStream> {
+        let build_api = if use_crate {
+            quote! {
+                let api = crate::all_mvcs(());
+                #(let api = #crates::all_mvcs(api); )*
+            }
+        } else {
+            quote! {
+                let api = ();
+                #(let api = #crates::all_mvcs(api); )*
+            }
+        };
+
+
         Ok(quote! {
-            let api = crate::all_mvcs(());
-            #(let api = #crates::all_mvcs(api); )*
+            #build_api
 
             let name = std::env!("CARGO_PKG_NAME");
             let version = std::env!("CARGO_PKG_VERSION");
@@ -64,8 +76,11 @@ impl Transport for Mvcs {
 #[cfg(test)]
 mod tests {
     use std::path::PathBuf;
+
     use syn::parse_quote;
+
     use ioc_scan::export;
+
     use super::*;
 
     #[test]

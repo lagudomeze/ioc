@@ -18,7 +18,7 @@ struct ImportParam {
     self_crate: Option<Path>,
 }
 
-pub(crate) fn generate(crates: &[Path]) -> Result<TokenStream2> {
+pub(crate) fn generate(crates: &[Path], use_crate: bool) -> Result<TokenStream2> {
 
     let transport = Beans::new()
         .deps(&crates);
@@ -26,7 +26,7 @@ pub(crate) fn generate(crates: &[Path]) -> Result<TokenStream2> {
     #[cfg(feature = "mvc")]
     let transport = transport.join(Mvcs::default());
 
-    let expanded = transport.import(&crates)
+    let expanded = transport.import(&crates, use_crate)
         .map_err(|err| Error::custom(err))?;
 
     Ok(expanded.into())

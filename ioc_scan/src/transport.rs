@@ -7,7 +7,7 @@ use crate::{error::Result, ModuleInfo, scan::Scanner};
 pub trait Transport: Scanner {
     fn export(self) -> Result<TokenStream>;
 
-    fn import(self, crates: &[Path]) -> Result<TokenStream>;
+    fn import(self, crates: &[Path], use_crate: bool) -> Result<TokenStream>;
 
     fn join<U>(self, rht: U) -> Transports<Self, U>
     where
@@ -55,9 +55,9 @@ where
         })
     }
 
-    fn import(self, crates: &[Path]) -> Result<TokenStream> {
-        let lft = self.lft.import(crates)?;
-        let rht = self.rht.import(crates)?;
+    fn import(self, crates: &[Path], use_crate: bool) -> Result<TokenStream> {
+        let lft = self.lft.import(crates, use_crate)?;
+        let rht = self.rht.import(crates, use_crate)?;
         Ok(quote! {
             #lft
             #rht

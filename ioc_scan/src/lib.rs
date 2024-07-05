@@ -29,11 +29,11 @@ where
     visit.scan()?.export()
 }
 
-pub fn import<T>(transport: T, crates: &[Path]) -> Result<TokenStream>
+pub fn import<T>(transport: T, crates: &[Path], use_crate: bool) -> Result<TokenStream>
 where
     T: Transport,
 {
-    transport.import(crates)
+    transport.import(crates, use_crate)
 }
 
 
