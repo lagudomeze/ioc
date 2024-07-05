@@ -1,32 +1,24 @@
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::{ItemStruct, parse_quote, Path, PathSegment};
+use syn::{ItemStruct, Path, PathSegment};
 
 use crate::{ModuleInfo, Scanner};
 use crate::transport::Transport;
 
 #[derive(Debug, Default)]
 pub struct Beans {
-    self_crate: Option<Path>,
     deps: Vec<Path>,
     types: Vec<Path>,
 }
 
 impl Beans {
     pub fn new() -> Self {
-        Self {
-            ..Default::default()
-        }
+        Default::default()
     }
+
     pub fn deps(self, deps: &[Path]) -> Self {
         Self {
             deps: deps.to_vec(),
-            ..self
-        }
-    }
-    pub fn self_crate(self, self_crate: Option<Path>) -> Self {
-        Self {
-            self_crate,
             ..self
         }
     }
@@ -68,11 +60,7 @@ impl Transport for Beans {
     }
 
     fn import(self, crates: &[Path]) -> crate::Result<TokenStream> {
-        let self_path = self.self_crate.unwrap_or(
-            parse_quote!(crate)
-        );
         Ok(quote! {
-            #self_path::all_beans_with::<ioc::Init>(&mut ctx)?;
             #(#crates::all_beans_with::<ioc::Init>(&mut ctx)?; )*
         })
     }

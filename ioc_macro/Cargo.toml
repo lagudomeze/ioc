@@ -11,6 +11,7 @@ thiserror = { workspace = true }
 darling = { workspace = true }
 ioc_scan = { workspace = true }
 ioc_mvc_scan = { workspace = true, optional = true }
+log = "0.4.21"
 
 [lib]
 proc-macro = true

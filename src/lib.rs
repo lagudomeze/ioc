@@ -30,7 +30,7 @@
 //!
 //!     // run!(); // Uses default values for name, dir, and profile
 //!     run!(
-//!         deps(),
+//!         crates(),
 //!         name = "my_app",
 //!         dir = ".",
 //!         profile = "prod"
@@ -97,7 +97,7 @@ pub use ioc_core::{
     Wrapper
 };
 pub use ioc_core_derive::Bean;
-pub use ioc_macro::{export, import};
+pub use ioc_macro::{export, run};
 #[cfg(feature = "mvc")]
 pub use ioc_mvc::{mvc, OpenApi, OpenApiExt, run_mvc};
 
@@ -110,7 +110,6 @@ pub mod __private {
         Context,
         Result,
     };
-    pub use ioc_macro::import;
 
     pub use crate::log::LogOptions;
 
@@ -121,40 +120,43 @@ pub mod __private {
     }
 }
 
-/// See module level documentation for more information.
-#[macro_export]
-macro_rules! run {
-    (
-        deps($($dep:path),*)
-        $(,self_crate = $self_crate:path)?
-        $(,name = $name:expr)?
-        $(,dir = $dir:expr)?
-        $(,profile = $profile:expr)?
-        $(,debug = $debug:expr)?
-    ) => {
-        {
-            use ioc::__private;
-
-            __private::LogOptions::new()
-                $(.debug($debug))?
-                .init()?;
-
-            let config = __private::AppConfigLoader::new()
-                $(.name($name))?
-                $(.dir($dir))?
-                $(.profile($profile))?
-                .load()?;
-
-            let mut ctx = __private::Context::new(config);
-
-            __private::pre_init(&mut ctx)?;
-
-            __private::import!(
-                crates($($dep),*),
-                $(self_crate = $self_crate)?
-            );
-
-            ctx.complete()
-        }
-    }
-}
+// See module level documentation for more information.
+// #[macro_export]
+// macro_rules! run {
+//     (
+//         deps($($dep:path),*)
+//         $(,self_crate = $self_crate:path)?
+//         $(,name = $name:expr)?
+//         $(,dir = $dir:expr)?
+//         $(,profile = $profile:expr)?
+//         $(,debug = $debug:expr)?
+//     ) => {
+//         {
+//             use ioc::__private;
+//
+//             __private::LogOptions::new()
+//                 $(.debug($debug))?
+//                 .init()?;
+//
+//             let pkg_name = env!("CARGO_PKG_NAME");
+//
+//             let config = __private::AppConfigLoader::new()
+//                 .name(pkg_name)
+//                 $(.name($name))?
+//                 $(.dir($dir))?
+//                 $(.profile($profile))?
+//                 .load()?;
+//
+//             let mut ctx = __private::Context::new(config);
+//
+//             __private::pre_init(&mut ctx)?;
+//
+//             __private::import!(
+//                 crates($($dep),*),
+//                 $(self_crate = $self_crate)?
+//             );
+//
+//             ctx.complete()
+//         }
+//     }
+// }
