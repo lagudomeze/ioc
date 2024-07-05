@@ -183,6 +183,11 @@ macro_rules! run {
                 $(dir = $dir;)?
                 $(profile = $profile;)?
             );
+            {
+                use ioc::__private;
+
+                __private::pre_init(&mut ctx)?;
+            }
 
             // import and run mvc(maybe)
             $crate::import!(
