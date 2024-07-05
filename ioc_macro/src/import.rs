@@ -1,8 +1,9 @@
 use proc_macro::TokenStream;
+use std::collections::HashSet;
 
 use darling::{ast::NestedMeta, Error, FromMeta, util::PathList};
 use proc_macro2::TokenStream as TokenStream2;
-use syn::{LitBool, parse_quote};
+use syn::{LitBool, parse_quote, Path};
 
 #[cfg(feature = "mvc")]
 use ioc_mvc_scan::Mvcs;
@@ -28,15 +29,16 @@ pub(crate) fn generate(input: TokenStream) -> darling::Result<TokenStream> {
 
     let expanded = {
         let crates = {
-            let mut crates = crates.to_vec();
+            let mut crates: HashSet<Path> = HashSet::from_iter(crates.iter().cloned());
+            crates.insert(parse_quote!(ioc));
             if let Some(lit) = use_crate {
                 if lit.value {
-                    crates.push(parse_quote!(crate));
+                    crates.insert(parse_quote!(crate));
                 }
             } else {
-                crates.push(parse_quote!(crate));
+                crates.insert(parse_quote!(crate));
             }
-            crates
+            crates.into_iter().collect::<Vec<_>>()
         };
 
         let transport = Beans::new()

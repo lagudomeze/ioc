@@ -103,9 +103,11 @@ pub use ioc_mvc::{mvc, OpenApi, OpenApiExt, run_mvc, WebConfig};
 pub mod log;
 
 pub fn all_beans_with<F: BeanFamily>(ctx: F::Ctx) -> Result<F::Ctx> {
-    use ioc_core::MethodType;
     #[cfg(feature = "mvc")]
-    let ctx = F::Method::<WebConfig>::run(ctx)?;
+    let ctx = {
+        use ioc_core::MethodType;
+        F::Method::<WebConfig>::run(ctx)?
+    };
     Ok(ctx)
 }
 
