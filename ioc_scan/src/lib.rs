@@ -20,7 +20,7 @@ pub fn export<T>(transport: T, file: PathBuf) -> Result<TokenStream>
 where
     T: Transport,
 {
-    let module = Module::new(file);
+    let module = Module::new(file)?;
     let visit = ScanVisit::new(module, transport);
     visit.scan()?.export()
 }

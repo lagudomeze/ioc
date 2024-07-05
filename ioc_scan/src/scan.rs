@@ -4,6 +4,7 @@ use std::{fmt, fs::read_to_string, mem::swap, path::{
 }};
 use std::env::current_dir;
 use std::fmt::{Display, Formatter};
+
 use syn::{
     Ident,
     ItemImpl,
@@ -47,23 +48,18 @@ impl Display for Module {
 }
 
 impl Module {
-    pub(crate) fn new(file: PathBuf) -> Self {
-        if file.ends_with("src/main.rs") || file.ends_with("src/lib.rs") {
-            Self {
-                root: file
-                    .parent()
-                    //todo make it result
-                    .expect("root module must have parent!")
-                    .to_path_buf(),
-                file: file.to_path_buf(),
-                module_path: Path {
-                    leading_colon: None,
-                    segments: Default::default(),
-                },
-            }
-        } else {
-            panic!("root module must be main.rs or lib.rs")
-        }
+    pub(crate) fn new(file: PathBuf) -> Result<Self> {
+        Ok(Self {
+            root: file
+                .parent()
+                .ok_or(Error::NoParent(file.to_string_lossy().to_string()))?
+                .to_path_buf(),
+            file: file.to_path_buf(),
+            module_path: Path {
+                leading_colon: None,
+                segments: Default::default(),
+            },
+        })
     }
 
     pub(crate) fn sub_module(&self, segment: &Ident) -> Result<Self> {
