@@ -10,6 +10,8 @@ pub enum Error {
     SynError(#[from] syn::Error),
     #[error("no parent: `{0}`")]
     NoParent(String),
+    #[error("Not found file of `{0}`")]
+    FileNotFound(String),
 }
 
 pub type Result<T> = StdResult<T, Error>;

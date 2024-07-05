@@ -6,7 +6,7 @@ use syn::Path;
 pub use crate::{
     beans::Beans,
     error::{Error, Result},
-    scan::{ModuleInfo, Scanner},
+    scan::{Module, Scanner},
     transport::Transport,
 };
 use crate::scan::ScanVisit;
@@ -20,12 +20,8 @@ pub fn export<T>(transport: T, file: PathBuf) -> Result<TokenStream>
 where
     T: Transport,
 {
-    let module_path = Path {
-        leading_colon: None,
-        segments: Default::default(),
-    };
-    let module_info = ModuleInfo::new(module_path, file);
-    let visit = ScanVisit::new(module_info, transport);
+    let module = Module::new(file);
+    let visit = ScanVisit::new(module, transport);
     visit.scan()?.export()
 }
 

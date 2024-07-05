@@ -2,7 +2,7 @@ use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{ItemImpl, ItemStruct, Path};
 
-use crate::{error::Result, ModuleInfo, scan::Scanner};
+use crate::{error::Result, Module, scan::Scanner};
 
 pub trait Transport: Scanner {
     fn export(self) -> Result<TokenStream>;
@@ -30,12 +30,12 @@ where
     T: Transport,
     U: Transport,
 {
-    fn item_struct(&mut self, module_info: &ModuleInfo, i: &ItemStruct) -> Result<()> {
+    fn item_struct(&mut self, module_info: &Module, i: &ItemStruct) -> Result<()> {
         self.lft.item_struct(module_info, i)?;
         self.rht.item_struct(module_info, i)
     }
 
-    fn item_impl(&mut self, module_info: &ModuleInfo, i: &ItemImpl) -> Result<()> {
+    fn item_impl(&mut self, module_info: &Module, i: &ItemImpl) -> Result<()> {
         self.lft.item_impl(module_info, i)?;
         self.rht.item_impl(module_info, i)
     }

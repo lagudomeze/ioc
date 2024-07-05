@@ -1,80 +1,137 @@
-use std::{fs::read_to_string, path::PathBuf};
-use std::mem::swap;
-
+use std::{fmt, fs::read_to_string, mem::swap, path::{
+    Path as FsPath,
+    PathBuf,
+}};
+use std::env::current_dir;
+use std::fmt::{Display, Formatter};
 use syn::{
     Ident,
-    ItemImpl, ItemMod, ItemStruct, Path, PathSegment, visit::{Visit, visit_item_mod},
+    ItemImpl,
+    ItemMod,
+    ItemStruct,
+    Path,
+    PathSegment,
+    visit::{
+        Visit,
+        visit_item_impl,
+        visit_item_mod,
+        visit_item_struct,
+    }
 };
-use syn::visit::{visit_item_impl, visit_item_struct};
-use thiserror::__private::AsDisplay;
 
-use crate::{Error, Result};
+use crate::{
+    Error,
+    Result,
+};
 
-fn sub_module_file(parent: &std::path::Path, sub_module: &Ident) -> PathBuf {
-    let mod_dir_path = parent.join(format!("{}/mod.rs", sub_module));
-    let mod_file_path = parent.join(format!("{}.rs", sub_module));
-    if mod_dir_path.exists() && mod_dir_path.is_file() {
-        mod_dir_path
-    } else if mod_file_path.exists() && mod_file_path.is_file() {
-        mod_file_path
-    } else {
-        let segment = sub_module.to_string();
-        panic!(
-            "there is nether {}/mod.rs nor {}.rs under {} ",
-            segment,
-            segment,
-            parent.as_display()
-        )
+#[derive(Debug)]
+pub struct Module {
+    root: PathBuf,
+    file: PathBuf,
+    module_path: Path,
+}
+
+impl Display for Module {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let display = current_dir()
+            .expect("fetch current dir failed!")
+            .to_string_lossy()
+            .to_string();
+        f.debug_struct("Module")
+            .field("root", &self.root)
+            .field("file", &self.file)
+            .field("module_path", &self.module_path)
+            .field("current_dir", &display)
+            .finish()
     }
 }
 
-pub struct ModuleInfo {
-    pub module_path: Path,
-    pub file: PathBuf,
-}
-
-impl ModuleInfo {
-    pub(crate) fn new(module_path: Path, file: PathBuf) -> Self {
-        Self { module_path, file }
+impl Module {
+    pub(crate) fn new(file: PathBuf) -> Self {
+        if file.ends_with("src/main.rs") || file.ends_with("src/lib.rs") {
+            Self {
+                root: file
+                    .parent()
+                    //todo make it result
+                    .expect("root module must have parent!")
+                    .to_path_buf(),
+                file: file.to_path_buf(),
+                module_path: Path {
+                    leading_colon: None,
+                    segments: Default::default(),
+                },
+            }
+        } else {
+            panic!("root module must be main.rs or lib.rs")
+        }
     }
 
-    fn sub(&self, sub_module_name: &Ident) -> Result<Self> {
-        let parent = self
-            .file
-            .parent()
-            .ok_or(Error::NoParent(self.file.to_string_lossy().to_string()))?;
-
-        let file = sub_module_file(parent, sub_module_name);
-        let module_path = {
-            let mut path = self.module_path.clone();
-            path.segments
-                .push(PathSegment::from(sub_module_name.clone()));
-            path
+    pub(crate) fn sub_module(&self, segment: &Ident) -> Result<Self> {
+        let file = {
+            let mut buf = self.root.to_path_buf();
+            for segment in self.module_path.segments.iter() {
+                buf.push(format!("{}", segment.ident))
+            }
+            buf.push(segment.to_string());
+            buf.push("mod.rs");
+            if buf.exists() && buf.is_file() {
+                buf
+            } else {
+                // pop mod.rs
+                buf.pop();
+                // set xxx.rs
+                buf.set_extension("rs");
+                if buf.exists() && buf.is_file() {
+                    buf
+                } else {
+                    return Err(Error::FileNotFound(format!("{self}")));
+                }
+            }
         };
-        Ok(Self::new(module_path, file))
+
+        let module_path = {
+            let mut module_path = self.module_path.clone();
+            module_path.segments.push(PathSegment::from(segment.clone()));
+            module_path
+        };
+
+
+        Ok(Self {
+            root: self.root.clone(),
+            file,
+            module_path,
+        })
+    }
+
+    pub fn module_path(&self) -> &Path {
+        &self.module_path
+    }
+
+    pub(crate) fn file(&self) -> &FsPath {
+        &self.file
     }
 }
 
 pub(crate) struct ScanVisit<T> {
-    module_info: ModuleInfo,
+    module: Module,
     scanner: T,
 }
 
 impl<T> ScanVisit<T> {
-    pub(crate) fn new(module_info: ModuleInfo, scanner: T) -> Self {
+    pub(crate) fn new(module: Module, scanner: T) -> Self {
         Self {
-            module_info,
+            module,
             scanner,
         }
     }
 }
 
 pub trait Scanner {
-    fn item_struct(&mut self, _module_info: &ModuleInfo, _i: &ItemStruct) -> Result<()> {
+    fn item_struct(&mut self, _module_info: &Module, _i: &ItemStruct) -> Result<()> {
         Ok(())
     }
 
-    fn item_impl(&mut self, _module_info: &ModuleInfo, _i: &ItemImpl) -> Result<()> {
+    fn item_impl(&mut self, _module_info: &Module, _i: &ItemImpl) -> Result<()> {
         Ok(())
     }
 }
@@ -85,32 +142,32 @@ where
 {
     fn visit_item_impl(&mut self, i: &'ast ItemImpl) {
         self.scanner
-            .item_impl(&self.module_info, i)
+            .item_impl(&self.module, i)
             .expect("item_impl failed!");
         visit_item_impl(self, i);
     }
 
     fn visit_item_mod(&mut self, i: &'ast ItemMod) {
         if i.content.is_none() {
-            let mut module_info = self
-                .module_info
-                .sub(&i.ident)
+            let mut module = self
+                .module
+                .sub_module(&i.ident)
                 .expect("sub module not found!");
 
-            let string = read_to_string(&module_info.file).expect("read file failed!");
+            let string = read_to_string(&module.file()).expect("read file failed!");
             let file = syn::parse_file(&string).expect("parse file failed!");
 
-            swap(&mut self.module_info, &mut module_info);
+            swap(&mut self.module, &mut module);
             self.visit_file(&file);
-            swap(&mut self.module_info, &mut module_info);
+            swap(&mut self.module, &mut module);
         } else {
             let segment = PathSegment::from(i.ident.clone());
 
-            self.module_info.module_path.segments.push(segment);
+            self.module.module_path.segments.push(segment);
             visit_item_mod(self, &i);
 
             let pair = self
-                .module_info
+                .module
                 .module_path
                 .segments
                 .pop()
@@ -122,7 +179,7 @@ where
 
     fn visit_item_struct(&mut self, i: &'ast ItemStruct) {
         self.scanner
-            .item_struct(&self.module_info, i)
+            .item_struct(&self.module, i)
             .expect("item_struct failed!");
         visit_item_struct(self, i);
     }
@@ -130,7 +187,7 @@ where
 
 impl<'ast, T: Scanner> ScanVisit<T> {
     pub(crate) fn scan(mut self) -> Result<T> {
-        let string = read_to_string(&self.module_info.file)?;
+        let string = read_to_string(&self.module.file)?;
         let file = syn::parse_file(&string)?;
         self.visit_file(&file);
         Ok(self.scanner)

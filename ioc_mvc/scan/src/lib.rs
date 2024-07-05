@@ -3,7 +3,7 @@ use proc_macro2::{Ident, TokenStream};
 use quote::quote;
 use syn::{ItemImpl, parse_quote, Path, PathSegment};
 
-use ioc_scan::{ModuleInfo, Result, Scanner, Transport};
+use ioc_scan::{Module, Result, Scanner, Transport};
 
 #[derive(Default, FromMeta)]
 #[darling(default)]
@@ -17,7 +17,7 @@ pub struct Mvcs {
 }
 
 impl Scanner for Mvcs {
-    fn item_impl(&mut self, module_info: &ModuleInfo, i: &ItemImpl) -> ioc_scan::Result<()> {
+    fn item_impl(&mut self, module_info: &Module, i: &ItemImpl) -> Result<()> {
         for attr in i.attrs.iter() {
             if attr.path().is_ident("mvc") {
                 let raw_type: Ident = {
@@ -25,7 +25,7 @@ impl Scanner for Mvcs {
                     parse_quote!(#raw_type)
                 };
 
-                let mut find_type = module_info.module_path.clone();
+                let mut find_type = module_info.module_path().clone();
                 find_type.segments.push(PathSegment::from(raw_type));
                 self.types.push(find_type);
             }

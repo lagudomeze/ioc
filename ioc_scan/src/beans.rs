@@ -2,8 +2,11 @@ use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{ItemStruct, Path, PathSegment};
 
-use crate::{ModuleInfo, Scanner};
-use crate::transport::Transport;
+use crate::{
+    scan::Module,
+    Scanner,
+    transport::Transport,
+};
 
 #[derive(Debug, Default)]
 pub struct Beans {
@@ -25,12 +28,12 @@ impl Beans {
 }
 
 impl Scanner for Beans {
-    fn item_struct(&mut self, module_info: &ModuleInfo, i: &ItemStruct) -> crate::Result<()> {
+    fn item_struct(&mut self, module_info: &Module, i: &ItemStruct) -> crate::Result<()> {
         for attr in i.attrs.iter() {
             if attr.path().is_ident("derive") {
                 attr.parse_nested_meta(|meta| {
                     if meta.path.is_ident("Bean") {
-                        let mut find_type = module_info.module_path.clone();
+                        let mut find_type = module_info.module_path().clone();
                         find_type.segments.push(PathSegment::from(i.ident.clone()));
                         self.types.push(find_type);
                     }
