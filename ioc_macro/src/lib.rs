@@ -1,3 +1,5 @@
+#![feature(proc_macro_span)]
+
 use proc_macro::TokenStream;
 
 mod export;
