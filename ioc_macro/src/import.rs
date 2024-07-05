@@ -9,7 +9,7 @@ use syn::Path;
 
 #[cfg(feature = "mvc")]
 use ioc_mvc_scan::Mvcs;
-use ioc_scan::{Beans, Transport};
+use ioc_scan::{Beans, import, Transport};
 
 #[derive(Default, FromMeta)]
 #[darling(default)]
@@ -26,7 +26,7 @@ pub(crate) fn generate(crates: &[Path], use_crate: bool) -> Result<TokenStream2>
     #[cfg(feature = "mvc")]
     let transport = transport.join(Mvcs::default());
 
-    let expanded = transport.import(&crates, use_crate)
+    let expanded = import(transport, &crates, use_crate)
         .map_err(|err| Error::custom(err))?;
 
     Ok(expanded.into())

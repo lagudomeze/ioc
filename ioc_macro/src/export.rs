@@ -1,6 +1,5 @@
 use proc_macro::TokenStream;
 use std::path::PathBuf;
-use proc_macro2::TokenStream as TokenStream2;
 
 use darling::{
     ast::NestedMeta,
@@ -9,12 +8,12 @@ use darling::{
     Result,
     util::PathList
 };
+use proc_macro2::TokenStream as TokenStream2;
 use syn::spanned::Spanned;
+
 #[cfg(feature = "mvc")]
 use ioc_mvc_scan::Mvcs;
-use ioc_scan::{Beans, export};
-#[cfg(feature = "mvc")]
-use ioc_scan::Transport;
+use ioc_scan::{Beans, export, Transport};
 
 #[derive(Default, FromMeta)]
 #[darling(default)]
