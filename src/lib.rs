@@ -52,31 +52,24 @@
 //! ### Example
 //!
 //! ```rust
-//! use ioc::{Bean, BeanFactory, Context};
+//! use ioc::*;
 //!
 //! #[derive(Bean)]
+//! #[bean(ioc_crate = ioc)]
 //! struct A;
 //!
 //! #[derive(Bean)]
-//! #[custom_factory]
+//! #[bean(construct = A, ioc_crate = ioc)]
 //! struct AnotherBeanA;
 //!
-//! impl BeanFactory for AnotherBeanA {
-//!     type Bean = A;
-//!
-//!     fn build(ctx: &mut Context) -> ioc::Result<Self::Bean> {
-//!         Ok(A)
-//!     }
-//! }
-//!
 //! #[derive(Bean)]
-//! #[name("my_bean")]
+//! #[bean(name = "my_bean", ioc_crate = ioc)]
 //! pub struct MyBean {
-//!     #[inject]
+//!     #[inject(bean)]
 //!     a: &'static A,
-//!     #[inject(AnotherBeanA)]
+//!     #[inject(bean_with = AnotherBeanA)]
 //!     another_a: &'static A,
-//!     #[value("config.key")]
+//!     #[inject(config = "config.key")]
 //!     config_value: String,
 //! }
 //! ```
@@ -85,13 +78,15 @@
 pub use ioc_core::{
     AppConfigLoader,
     Bean,
-    BeanFactory,
     BeanFamily,
+    BeanSpec,
     Config,
-    Context,
+    Construct,
+    Destroy,
     Init,
+    InitCtx,
     IocError,
-    MethodType,
+    Method,
     Result,
     Wrapper
 };
@@ -105,7 +100,7 @@ pub mod log;
 pub fn all_beans_with<F: BeanFamily>(ctx: F::Ctx) -> Result<F::Ctx> {
     #[cfg(feature = "mvc")]
     let ctx = {
-        use ioc_core::MethodType;
+        use ioc_core::Method;
         F::Method::<WebConfig>::run(ctx)?
     };
     Ok(ctx)
@@ -123,13 +118,13 @@ where
 pub mod __private {
     pub use ioc_core::{
         AppConfigLoader,
-        Context,
+        InitCtx,
         Result,
     };
 
     pub use crate::log::LogOptions;
 
-    pub fn pre_init(_ctx: &mut Context) -> Result<()> {
+    pub fn pre_init(_ctx: &mut InitCtx) -> Result<()> {
         #[cfg(feature = "mvc")]
         _ctx.get_or_init::<ioc_mvc::WebConfig>()?;
         Ok(())
@@ -169,7 +164,7 @@ macro_rules! init_context {
                 $(.profile($profile))?
                 .load()?;
 
-            __private::Context::new(config)
+            __private::InitCtx::new(config)
         }
     };
 }

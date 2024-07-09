@@ -1,6 +1,6 @@
 // examples/main
 
-use ioc::{Bean, BeanFactory, Context, export};
+use ioc::{Bean, InitCtx, export, Construct};
 
 mod test;
 
@@ -13,13 +13,13 @@ mod tt {
 
 #[derive(Bean)]
 pub struct B {
-    #[inject]
+    #[inject(bean)]
     pub _a: &'static A,
-    #[inject(crate::A)]
+    #[inject(bean_with = crate::A)]
     _a0: &'static A,
-    #[inject()]
+    #[inject(bean)]
     _a1: &'static A,
-    #[inject(AnotherBeanA)]
+    #[inject(bean_with = AnotherBeanA)]
     _a2: &'static A,
 }
 
@@ -33,21 +33,22 @@ impl Default for S {
 }
 
 #[derive(Bean)]
-#[name("aaa")]
+#[bean(name = "aaa")]
 pub struct A {
-    #[value("aaa.v")]
+    #[inject(config = "aaa.v")]
     _v: bool,
+    #[inject(default)]
     _s: S,
 }
 
 #[derive(Bean)]
-#[custom_factory]
+#[bean(construct = AnotherBeanA)]
 struct AnotherBeanA;
 
-impl BeanFactory for AnotherBeanA {
+impl Construct for AnotherBeanA {
     type Bean = A;
 
-    fn build(ctx: &mut Context) -> ioc::Result<Self::Bean> {
+    fn build(ctx: &mut InitCtx) -> ioc::Result<Self::Bean> {
         Ok(A {
             _v: ctx.get_config::<_>("aaa.t")?,
             _s: S("hihi"),

@@ -13,8 +13,6 @@ compile_error!("feature \"env_logger\" and feature \"tracing_log\" cannot be ena
 #[cfg(feature = "env_logger")]
 mod env_logger {
     use env_logger::{builder, Env};
-    use tracing::level_filters::LevelFilter;
-    use ioc_core::{Bean, BeanFactory};
 
     pub struct LogOptions<'a> {
         env: Env<'a>,
@@ -44,8 +42,6 @@ mod env_logger {
 
 #[cfg(feature = "tracing_log")]
 mod tracing_log {
-    use std::sync::OnceLock;
-
     use tracing_subscriber::{
         EnvFilter,
         filter::Directive,
@@ -54,7 +50,7 @@ mod tracing_log {
         reload::Handle
     };
 
-    use ioc_core::{Bean, BeanFactory, Context};
+    use crate::{Bean, Construct, InitCtx, Result, BeanSpec};
 
     pub struct LogOptions {
         default_directive: Directive,
@@ -74,7 +70,7 @@ mod tracing_log {
             self
         }
 
-        pub fn init(self) -> crate::Result<()> {
+        pub fn init(self) -> Result<()> {
             let filter = EnvFilter::builder()
                 .with_default_directive(self.default_directive)
                 .from_env_lossy();
@@ -87,13 +83,25 @@ mod tracing_log {
 
             builder.init();
 
-            LogPatcher::holder().get_or_init(|| { LogPatcher(handle) });
+            <LogPatcher as Bean>::Spec::holder().get_or_init(|| { LogPatcher(handle) });
 
             Ok(())
         }
     }
 
-    pub struct LogPatcher(Handle<EnvFilter, Formatter>);
+    #[derive(Bean)]
+    #[bean(construct = Init)]
+    pub struct LogPatcher(#[inject(default)]Handle<EnvFilter, Formatter>);
+
+    pub struct Init;
+
+    impl Construct for Init {
+        type Bean = LogPatcher;
+
+        fn build(_: &mut InitCtx) -> Result<Self::Bean> {
+            panic!("do not run here!")
+        }
+    }
 
     impl LogPatcher {
         pub fn reload<'a, I>(&self, value: I) -> crate::Result<()>
@@ -117,21 +125,6 @@ mod tracing_log {
                 filter.to_string()
             }).map_err(anyhow::Error::new)?;
             Ok(result)
-        }
-    }
-
-    impl BeanFactory for LogPatcher {
-        type Bean = Self;
-
-        fn build(_ctx: &mut Context) -> ioc_core::Result<Self::Bean> {
-            panic!("do not run here!")
-        }
-    }
-
-    impl Bean for LogPatcher {
-        fn holder<'a>() -> &'a OnceLock<Self::Bean> {
-            static HOLDER: OnceLock<LogPatcher> = OnceLock::new();
-            &HOLDER
         }
     }
 }

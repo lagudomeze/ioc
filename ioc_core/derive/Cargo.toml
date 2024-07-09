@@ -16,7 +16,10 @@ toml = { workspace = true }
 thiserror = { workspace = true }
 ioc_scan = { workspace = true }
 darling = { workspace = true }
+proc-macro-crate = { workspace = true }
 
 [lib]
 proc-macro = true
 
+[dev-dependencies]
+prettyplease = { workspace = true }

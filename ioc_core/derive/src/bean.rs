@@ -1,77 +1,389 @@
-use syn::{Attribute, LitStr, Meta, parse::Parse, Type};
+use darling::{
+    ast::{
+        Data,
+        Style,
+    },
+    Error,
+    FromDeriveInput,
+    FromField,
+    FromMeta,
+    Result,
+};
+use proc_macro2::{Ident, TokenStream};
+use quote::{format_ident, quote, ToTokens};
+use syn::{Path, Type};
 
-pub(crate) enum FieldAttribute {
-    Ref(Option<Type>),
+fn resolve_ioc_crate(ioc_crate: &Option<Path>) -> Result<TokenStream> {
+    if let Some(ioc_crate) = ioc_crate {
+        return Ok(quote! { #ioc_crate });
+    } else {
+        use proc_macro_crate::{crate_name, FoundCrate};
+        match crate_name("ioc") {
+            Ok(FoundCrate::Itself) => {
+                Ok(quote! { crate })
+            }
+            Ok(FoundCrate::Name(name)) => {
+                let ident = format_ident!("{}", name);
+                Ok(quote! { #ident })
+            }
+            Err(err) => {
+                Err(Error::custom(err))
+            }
+        }
+    }
+}
+
+#[derive(Debug, FromMeta)]
+#[darling(default, rename_all = "snake_case")]
+pub enum Inject {
+    Bean,
+    BeanWith(Path),
     Config(String),
     Default,
 }
 
-impl FieldAttribute {
-    pub fn from_attributes(attrs: &[Attribute]) -> Result<Self, syn::Error> {
-        for attr in attrs {
-            if attr.path().is_ident("inject") {
-                let maybe_type = if let Meta::Path(_) = attr.meta {
-                    None
+impl Default for Inject {
+    fn default() -> Self {
+        Inject::Default
+    }
+}
+
+#[derive(Debug, FromField)]
+#[darling(attributes(inject))]
+pub struct BeanField {
+    ty: Type,
+    ident: Option<Ident>,
+    #[darling(flatten)]
+    inject: Inject,
+}
+
+#[derive(Debug, FromDeriveInput)]
+#[darling(attributes(bean))]
+pub(crate) struct BeanStruct {
+    /// The struct ident.
+    ident: Ident,
+
+    /// Receives the body of the struct or enum. We don't care about
+    /// struct fields because we previously told darling we only accept structs.
+    data: Data<(), BeanField>,
+
+    #[darling(default)]
+    name: Option<String>,
+    #[darling(default)]
+    spec: Option<Path>,
+    #[darling(default)]
+    construct: Option<Path>,
+    #[darling(default)]
+    destroy: Option<Path>,
+    #[darling(default)]
+    ioc_crate: Option<Path>,
+}
+
+struct FieldInitializer<'a>(&'a BeanField);
+
+impl<'a> From<&'a BeanField> for FieldInitializer<'a> {
+    fn from(value: &'a BeanField) -> Self {
+        Self(value)
+    }
+}
+
+impl ToTokens for FieldInitializer<'_> {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let BeanField {
+            ref ty,
+            ref ident,
+            ref inject,
+        } = self.0;
+
+
+        let initializer = match inject {
+            Inject::Bean => {
+                if let Type::Reference(type_ref)= ty {
+                    let ty = type_ref.elem.as_ref();
+                    quote! { ctx.get_or_init::<#ty>()? }
                 } else {
-                    let attr = attr.parse_args::<BeanRef>()?;
-                    attr.0
-                };
-                return Ok(FieldAttribute::Ref(maybe_type));
-            } else if attr.path().is_ident("value") {
-                let attr = attr.parse_args::<ConfigAttr>()?;
-                return Ok(FieldAttribute::Config(attr.0));
+                    quote! { ctx.get_or_init::<#ty>()? }
+                }
+            }
+            Inject::BeanWith(ty) => {
+                quote! { ctx.get_or_init::<#ty>()? }
+            }
+            Inject::Config(key) => {
+                quote! { ctx.get_config::<_>(#key)?}
+            }
+            Inject::Default => {
+                quote! { Default::default() }
+            }
+        };
+
+        if let Some(field_name) = ident {
+            tokens.extend(quote! { #field_name : #initializer })
+        } else {
+            tokens.extend(initializer)
+        }
+    }
+}
+
+struct ConstructMaker<'a> (&'a Ident, &'a Data<(), BeanField>, &'a TokenStream);
+
+impl ConstructMaker<'_> {
+    fn generate(&self) -> Result<TokenStream> {
+        let Self(ident, fields, ioc) = *self;
+
+        if !fields.is_struct() {
+            return Err(Error::unsupported_shape("only struct is supported").with_span(ident));
+        } else {
+            let struct_fields = fields
+                .as_ref()
+                .take_struct()
+                .expect("not here!");
+
+            let field_initializers = struct_fields
+                .iter()
+                .cloned()
+                .map(FieldInitializer::from);
+
+            let initializers = quote! {
+                #(#field_initializers),
+                *
+            };
+
+            let initializers = match struct_fields.style {
+                Style::Tuple => {
+                    quote! { Self(
+                        #initializers
+                    ) }
+                }
+                Style::Struct => {
+                    quote! { Self{
+                        #initializers
+                    } }
+                }
+                Style::Unit => {
+                    quote! { Self }
+                }
+            };
+            Ok(quote! {
+                impl #ioc::Construct for #ident {
+                    type Bean = Self;
+
+                    fn build(ctx: &mut #ioc::InitCtx) -> #ioc::Result<Self::Bean> {
+                        Ok(#initializers)
+                    }
+                }
+            })
+        }
+    }
+}
+
+struct SpecMaker<'a>(
+    &'a Ident,
+    &'a Option<String>,
+    &'a TokenStream,
+    &'a TokenStream,
+);
+
+impl ToTokens for SpecMaker<'_> {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let Self(ident, name, bean_type, ioc) = *self;
+
+        let name = if let Some(name) = name {
+            quote! { #name }
+        } else {
+            quote! { stringify!(#ident) }
+        };
+
+        tokens.extend(quote! {
+            impl #ioc::BeanSpec for #ident {
+                type Bean = #bean_type;
+
+                fn name() -> &'static str {
+                    #name
+                }
+                fn holder<'a>() -> &'a std::sync::OnceLock<Self::Bean> {
+                    use std::sync::OnceLock;
+                    static HOLDER: OnceLock<#bean_type> = OnceLock::new();
+                    &HOLDER
+                }
+            }
+        });
+    }
+}
+
+impl BeanStruct {
+    pub(crate) fn generate(&self) -> Result<TokenStream> {
+        let Self {
+            ref ident,
+            ref data,
+            ref name,
+            ref spec,
+            ref construct,
+            ref destroy,
+            ref ioc_crate,
+        } = *self;
+
+        let ioc = resolve_ioc_crate(ioc_crate)?;
+
+        let mut tokens = TokenStream::new();
+
+        let mut bean_type = quote! { #ident };
+
+        let mut patched_bean = false;
+
+        // make construct
+        let construct = if let Some(path) = construct {
+            bean_type = quote! { <#path as #ioc::Construct>::Bean };
+            patched_bean = true;
+            quote! { #path }
+        } else {
+            tokens.extend(ConstructMaker(ident, data, &ioc).generate()?);
+            quote! { #ident }
+        };
+
+        let spec = if let Some(path) = spec {
+            patched_bean = true;
+            quote! { #path }
+        } else {
+            SpecMaker(ident, name, &bean_type, &ioc).to_tokens(&mut tokens);
+            quote! { #ident }
+        };
+
+        let destroy = if let Some(path) = destroy {
+            patched_bean = true;
+            quote! { #path }
+        } else {
+            tokens.extend(quote! {
+                impl #ioc::Destroy for #ident {
+                    type Bean = #bean_type;
+                    fn drop(bean: &Self::Bean) {
+                        // drop
+                    }
+                }
+            });
+            quote! { #ident }
+        };
+        if patched_bean {
+            tokens.extend(quote! {
+                impl #ioc::Bean for #ident {
+                    type Spec = #spec;
+                    type Construct = #construct;
+                    type Destroy = #destroy;
+                }
+            });
+        }
+        Ok(tokens)
+    }
+}
+
+impl ToTokens for BeanStruct {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        match self.generate() {
+            Ok(tt) => {
+                tokens.extend(tt);
+            }
+            Err(err) => {
+                tokens.extend(err.write_errors());
             }
         }
-        return Ok(FieldAttribute::Default);
     }
 }
 
-struct BeanRef(Option<Type>);
+#[cfg(test)]
+mod test {
+    use syn::{parse_quote, parse_str};
+    use super::*;
 
-impl Parse for BeanRef {
-    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-        if input.is_empty() {
-            Ok(BeanRef(None))
-        } else {
-            let name = input.parse::<Type>()?;
-            Ok(BeanRef(Some(name)))
+    #[test]
+    fn it_works() {
+        let input = r#"
+            #[derive(Bean)]
+            #[bean(ioc_crate = "ioc")]
+            pub struct LogPatcher(
+                #[inject(default)]
+                Handle<EnvFilter, Formatter>
+            );
+        "#;
+
+        let parsed = parse_str(input).unwrap();
+        let result = BeanStruct::from_derive_input(&parsed);
+        if let Err(err) = result {
+            println!("err 0:{}", err.write_errors().to_string());
+            return;
         }
-    }
-}
+        let bean_struct = result.unwrap();
 
-struct MaybeString(Option<String>);
-struct ConfigAttr(String);
-
-impl Parse for MaybeString {
-    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-        if input.is_empty() {
-            Ok(MaybeString(None))
-        } else {
-            let name = input.parse::<LitStr>()?.value();
-            Ok(MaybeString(Some(name)))
+        if let Err(err) = bean_struct.generate() {
+            println!("err 1:{}", err.write_errors().to_string());
+            return;
         }
+
+        let file : syn::File = parse_quote!( #bean_struct);
+
+        println!("{}", prettyplease::unparse(&file));
+
     }
-}
 
-impl Parse for ConfigAttr {
-    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-        let path = input.parse::<LitStr>()?.value();
-        Ok(ConfigAttr(path))
+    #[test]
+    fn construct() {
+        let input = r#"
+            #[derive(Bean)]
+            #[bean(ioc_crate = "ioc", construct = "Init")]
+            pub struct LogPatcher(
+                #[inject(default)]
+                Handle<EnvFilter, Formatter>
+            );
+        "#;
+
+        let parsed = parse_str(input).unwrap();
+        let result = BeanStruct::from_derive_input(&parsed);
+        if let Err(err) = result {
+            println!("err 0:{}", err.write_errors().to_string());
+            return;
+        }
+        let bean_struct = result.unwrap();
+
+        if let Err(err) = bean_struct.generate() {
+            println!("err 1:{}", err.write_errors().to_string());
+            return;
+        }
+
+        let file : syn::File = parse_quote!( #bean_struct);
+
+        println!("{}", prettyplease::unparse(&file));
+
     }
-}
 
-pub(crate) struct TypeAttribute {
-    pub name: Option<String>,
-}
-
-impl TypeAttribute {
-    pub fn from_attributes(attrs: &[Attribute]) -> Result<Self, syn::Error> {
-        for attr in attrs {
-            if attr.path().is_ident("name") {
-                let attr = attr.parse_args::<MaybeString>()?;
-                return Ok(TypeAttribute { name: attr.0 });
+    #[test]
+    fn test_inject_config() {
+        let input = r#"
+            #[derive(Bean)]
+            #[bean(ioc_crate = "ioc")]
+            pub struct WebConfig {
+                #[inject(config = "web.addr")]
+                addr: String,
+                #[inject(config = "web.graceful_shutdown_timeout")]
+                shutdown_timeout: Duration,
+                #[inject(config = "web.tracing")]
+                tracing: bool,
             }
+        "#;
+
+        let parsed = parse_str(input).unwrap();
+        let result = BeanStruct::from_derive_input(&parsed);
+        if let Err(err) = result {
+            println!("err 0:{}", err.write_errors().to_string());
+            return;
         }
-        return Ok(TypeAttribute { name: None });
+        let bean_struct = result.unwrap();
+
+        if let Err(err) = bean_struct.generate() {
+            println!("err 1:{}", err.write_errors().to_string());
+            return;
+        }
+
+        let file : syn::File = parse_quote!( #bean_struct);
+
+        println!("{}", prettyplease::unparse(&file));
+
     }
 }

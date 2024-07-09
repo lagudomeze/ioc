@@ -11,3 +11,7 @@ log = { workspace = true }
 thiserror = { workspace = true }
 cfg-rs = { workspace = true }
 anyhow = { workspace = true }
+
+[dev-dependencies]
+prettyplease = { workspace = true }
+darling = { workspace = true }

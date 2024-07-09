@@ -2,18 +2,30 @@ use std::fmt::{Debug, Formatter};
 
 use cfg_rs::{Configuration, FromConfigWithPrefix};
 
-use crate::bean::{BeanFactory, Context};
+use crate::bean::{Construct, Destroy, InitCtx};
 use crate::IocError;
 
-/// BeanFactory for Configuration which implements `cfg_rs::FromConfigWithPrefix`
-impl<C> BeanFactory for C
+/// Construct for Configuration which implements `cfg_rs::FromConfigWithPrefix`
+impl<C> Construct for C
 where
     C: FromConfigWithPrefix,
 {
     type Bean = Self;
 
-    fn build(ctx: &mut Context) -> crate::Result<Self::Bean> {
+    fn build(ctx: &mut InitCtx) -> crate::Result<Self::Bean> {
         Ok(ctx.config.source.get_predefined()?)
+    }
+}
+
+/// Destroy for Configuration
+impl<C> Destroy for C
+where
+    C: FromConfigWithPrefix,
+{
+    type Bean = Self;
+
+    fn drop(_bean: &Self::Bean) {
+        // do nothing
     }
 }
 
@@ -94,8 +106,8 @@ mod tests {
 
     use cfg_rs::*;
 
-    use crate::Bean;
-    use crate::bean::Context;
+    use crate::{Bean, BeanSpec};
+    use crate::bean::InitCtx;
 
     #[derive(FromConfig)]
     #[config(prefix = "cfg_test")]
@@ -105,7 +117,9 @@ mod tests {
         //fields...
     }
 
-    impl Bean for Test {
+    impl BeanSpec for Test {
+        type Bean = Self;
+
         fn holder<'a>() -> &'a OnceLock<Self::Bean> {
             static HOLDER: OnceLock<Test> = OnceLock::new();
             &HOLDER
@@ -121,7 +135,7 @@ mod tests {
             .init()?
             .into();
 
-        let mut ctx = Context::new(config);
+        let mut ctx = InitCtx::new(config);
 
         let result = ctx.get_or_init::<Test>()?;
 

@@ -2,15 +2,18 @@
 
 pub use bean::{
     Bean,
-    BeanFactory,
+    BeanId,
+    BeanInfo,
     BeanSpec,
-    Context,
-    DropGuard
+    Construct,
+    Destroy,
+    DropGuard,
+    InitCtx
 };
 pub use config::{AppConfigLoader, Config};
 pub use error::{IocError, Result};
 pub use init::{Init, Wrapper};
-pub use types::{BeanFamily, MethodType};
+pub use types::{BeanFamily, Method};
 
 mod bean;
 mod error;

@@ -8,12 +8,13 @@ use ioc_core as ioc;
 use ioc_core_derive::Bean;
 
 #[derive(Bean)]
+#[bean(ioc_crate = ioc)]
 pub struct WebConfig {
-    #[value("web.addr")]
+    #[inject(config = "web.addr")]
     addr: String,
-    #[value("web.graceful_shutdown_timeout")]
+    #[inject(config = "web.graceful_shutdown_timeout")]
     shutdown_timeout: Duration,
-    #[value("web.tracing")]
+    #[inject(config = "web.tracing")]
     tracing: bool,
 }
 

@@ -56,6 +56,7 @@ poem = { version = "3" }
 poem-openapi = { version = "5" }
 prettyplease = { version = "0.2" }
 darling = { version = "0.20" }
+proc-macro-crate = { version = "3" }
 ioc_scan = { path = "./ioc_scan" }
 ioc_core = { path = "./ioc_core" }
 ioc_core_derive = { path = "ioc_core/derive" }

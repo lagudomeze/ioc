@@ -8,6 +8,7 @@ syn = { workspace = true, features = ["full", "fold", "visit"] }
 thiserror = { workspace = true }
 quote = { workspace = true }
 proc-macro2 = { workspace = true }
+serde = { version = "1.0.203", features = ["derive"] }
 
 [dev-dependencies]
-prettyplease = {workspace = true}
+prettyplease = { workspace = true }

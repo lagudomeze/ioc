@@ -52,7 +52,7 @@ impl Transport for Beans {
 
         Ok(quote! {
             pub fn all_beans_with<F: ioc::BeanFamily>(ctx: F::Ctx) -> ioc::Result<F::Ctx> {
-                use ioc::MethodType;
+                use ioc::Method;
                 // init all beans in self crate
                 #(let ctx = F::Method::<crate::#types>::run(ctx)?; )*
                 // init deps crate

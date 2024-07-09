@@ -1,81 +1,144 @@
-use std::any::{type_name, TypeId};
-use std::collections::{HashSet, VecDeque};
-use std::fmt::{Debug, Formatter};
-use std::hash::Hash;
-use std::sync::OnceLock;
+use std::{
+    any::{self, TypeId},
+    collections::{HashSet, VecDeque},
+    fmt::Debug,
+    hash::{
+        Hash,
+        Hasher,
+    },
+    sync::OnceLock,
+};
 
 use cfg_rs::FromConfig;
 use log::{debug, trace};
 
-use crate::config::Config;
-use crate::IocError;
+use crate::{
+    config::Config,
+    IocError,
+};
 
-// The `BeanId` struct is used to uniquely identify beans within the IoC container.
-// It contains a static string slice as the bean's name and a `TypeId` for the bean's type.
-#[derive(Debug, Hash, Eq, PartialEq, Copy, Clone)]
-pub struct BeanId {
-    /// The name of the bean, used as a human-readable identifier.
-    pub name: &'static str,
-    /// The `TypeId` of the bean's type, used to ensure type safety in the container.
-    pub type_id: TypeId,
-}
-
-// The `BeanSpec` struct defines the specification of a bean, which includes its identifier,
-// type name, and a drop function that is called when the bean is being destroyed.
-#[derive(Copy, Clone)]
-pub struct BeanSpec {
-    /// The unique identifier for the bean.
-    pub bean_id: BeanId,
+#[derive(Debug, Eq, Copy, Clone)]
+pub struct BeanInfo {
+    /// The name of the bean, used as a human-readable name.
+    pub(crate) name: &'static str,
     /// The type name of the bean, primarily for debugging purposes.
-    pub type_name: &'static str,
-    /// The name of the factory that will be used to create the bean.
-    pub factory_name: &'static str,
-    /// A function that will be called to perform any necessary cleanup when the bean is destroyed.
-    pub drop: fn()
+    pub(crate) bean_type_name: &'static str,
+    /// The name of the spec type of unique identify of bean
+    pub(crate) spec_name: &'static str,
+    /// The `TypeId` of the bean spec's type, used to ensure type safety in the container.
+    pub(crate) spec_spec_id: TypeId,
 }
 
-impl Debug for BeanSpec {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("BeanSpec")
-            .field("name", &self.bean_id.name)
-            .field("type_name", &self.type_name)
-            .field("factory_name", &self.factory_name)
-            .field("drop", &"function")
-            .finish()
+impl Hash for BeanInfo {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.spec_spec_id.hash(state);
+    }
+}
+
+impl PartialEq<Self> for BeanInfo {
+    fn eq(&self, other: &Self) -> bool {
+        self.spec_spec_id == other.spec_spec_id
+    }
+}
+impl PartialEq<BeanId> for BeanInfo {
+    fn eq(&self, other: &BeanId) -> bool {
+        self.spec_spec_id == other.0
+    }
+}
+
+#[derive(Hash, Eq, PartialEq, Copy, Clone, Debug)]
+pub struct BeanId(TypeId);
+
+pub trait BeanSpec {
+    type Bean;
+
+    fn name() -> &'static str {
+        Self::spec_type_name()
+    }
+
+    fn bean_type_name() -> &'static str {
+        any::type_name::<Self::Bean>()
+    }
+
+    fn spec_type_name() -> &'static str {
+        any::type_name::<Self>()
+    }
+
+    fn bean_type_id() -> TypeId
+    where
+        Self::Bean: 'static,
+    {
+        TypeId::of::<Self::Bean>()
+    }
+
+    fn spec_type_id() -> TypeId
+    where
+        Self: 'static,
+    {
+        TypeId::of::<Self>()
+    }
+
+    fn holder<'a>() -> &'a OnceLock<Self::Bean>;
+
+    fn bean_info() -> BeanInfo
+    where
+        Self: 'static,
+    {
+        let name = Self::name();
+        let bean_type_name = Self::bean_type_name();
+        let spec_name = Self::spec_type_name();
+        let spec_spec_id = Self::spec_type_id();
+        BeanInfo {
+            name,
+            bean_type_name,
+            spec_name,
+            spec_spec_id,
+        }
+    }
+
+    fn bean_id() -> BeanId
+    where
+        Self: 'static,
+    {
+        BeanId(Self::spec_type_id())
     }
 }
 
 /// The `Context` struct represents the IoC container's context, managing bean lifecycle, dependencies, and configuration.
 /// It contains a list of ready beans, a stack of pending beans, and sets of identifiers for ready and pending beans.
 #[derive(Debug)]
-pub struct Context {
+pub struct InitCtx {
     /// The configuration settings for the IoC container.
     pub(crate) config: Config,
 
     /// A list of beans that are ready to be injected into other beans.
-    ready_beans: Vec<BeanSpec>,
+    ready_beans: Vec<(BeanInfo, fn())>,
 
     /// A set of identifiers for beans that are ready to be injected into other beans.
     ready_bean_ids: HashSet<BeanId>,
 
     /// A stack of beans that are pending initialization.
-    pending_chain: VecDeque<BeanSpec>,
+    pending_chain: VecDeque<BeanInfo>,
 }
 
-/// The `BeanFactory` trait defines the contract for creating an instance of a bean.
 #[diagnostic::on_unimplemented(
-    message = "BeanFactory is not implemented for this type `{Self}`",
-    label = "implement BeanFactory for this type",
+    message = "Construct is not implemented for this type `{Self}`",
+    label = "implement Construct for this type or use Bean derive macro",
 )]
-pub trait BeanFactory {
-    /// The type of bean that will be created by this factory.
+pub trait Construct {
     type Bean;
 
-    /// Constructs an instance of the bean using the provided context.
-    fn build(ctx: &mut Context) -> crate::Result<Self::Bean>;
+    fn build(ctx: &mut InitCtx) -> crate::Result<Self::Bean>;
+}
 
-    /// Performs any necessary cleanup when the bean is being destroyed.
-    fn destroy(_product: &Self::Bean) {}
+#[diagnostic::on_unimplemented(
+    message = "Destroy is not implemented for this type `{Self}`",
+    label = "implement Destroy for this type or use Bean derive macro",
+)]
+pub trait Destroy {
+    type Bean;
+
+    fn drop(_: &Self::Bean) {}
 }
 
 /// The `Bean` trait extends `BeanFactory` with additional functionality for managing bean lifecycle within the IoC container.
@@ -102,77 +165,65 @@ pub trait BeanFactory {
     struct YourFactoryType;
     "
 )]
-pub trait Bean: BeanFactory<Bean: 'static + Sized> {
-
-    /// Returns a reference to the holder that contains the singleton instance of this bean.
-    fn holder<'a>() -> &'a OnceLock<Self::Bean>;
+pub trait Bean {
+    type Construct: Construct;
+    type Spec: BeanSpec<Bean=<Self::Construct as Construct>::Bean>;
+    type Destroy: Destroy<Bean=<Self::Construct as Construct>::Bean>;
 
     /// Attempts to retrieve a reference to the bean instance, returning an error if the bean is not yet ready.
-    fn try_get<'a>() -> crate::Result<&'a Self::Bean> {
-        Self::holder()
+    fn try_get<'a>() -> crate::Result<&'a <Self::Construct as Construct>::Bean> {
+        Self::Spec::holder()
             .get()
             .ok_or(IocError::DependNotReady {
-                type_name: Self::bean_type_name()
+                type_name: Self::Spec::bean_type_name()
             })
     }
 
-    fn get<'a>() -> &'a Self::Bean {
+    fn get<'a>() -> &'a <Self::Construct as Construct>::Bean {
         Self::try_get().expect("Failed to get bean from context")
     }
 
     /// Initializes the bean in the context, ensuring it is ready for injection.
-    fn init<'a>(ctx: &mut Context) -> crate::Result<&'a Self::Bean>
+    fn init<'a>(ctx: &mut InitCtx) -> crate::Result<&'a <Self::Construct as Construct>::Bean>
     where
-        Self: Sized,
+        Self::Spec: 'static,
     {
         ctx.get_or_init::<Self>()
     }
 
-    /// Returns the name of the bean, which is used for identification within the IoC container.
-    fn name() -> &'static str {
-        Self::bean_type_name()
-    }
-
     /// Returns a unique identifier for the bean based on its type.
-    fn bean_id() -> BeanId {
-        let name = Self::name();
-        let type_id = TypeId::of::<Self::Bean>();
-        BeanId {
-            name,
-            type_id,
-        }
+    fn bean_id() -> BeanId
+    where
+        Self::Spec: 'static,
+    {
+        Self::Spec::bean_id()
     }
 
-    /// Returns the specification for this bean, including its identifier and type name.
-    fn spec() -> BeanSpec {
-        let bean_id = Self::bean_id();
-        let type_name: &str = Self::bean_type_name();
-        let factory_name = std::any::type_name::<Self>();
-        let spec = BeanSpec {
-            bean_id,
-            type_name,
-            factory_name,
-            drop: || {
-                if let Some(r) = Self::holder().get() {
-                    Self::destroy(r);
-                }
-            },
-        };
+    /// Returns the info for this bean, including its identifier and type name.
+    fn info() -> BeanInfo
+    where
+        Self::Spec: 'static,
+    {
+        let info = Self::Spec::bean_info();
 
-        trace!("build spec {:?}", spec);
+        trace!("build bean info {} from {} with type {}", info.name, info.spec_name, info.bean_type_name);
 
-        spec
+        info
     }
+}
 
-    /// Returns the type name of the bean as a static string slice.
-    fn bean_type_name<'a>() -> &'a str {
-        type_name::<Self::Bean>()
-    }
+impl<T> Bean for T
+where
+    T: Construct<Bean=T> + Destroy<Bean=T> + BeanSpec<Bean=T>,
+{
+    type Construct = Self;
+    type Spec = Self;
+    type Destroy = Self;
 }
 
 // `DropGuard` is responsible for the cleanup logic of the IoC container.
 pub struct DropGuard {
-    ready_beans: Vec<BeanSpec>,
+    ready_beans: Vec<(BeanInfo, fn())>,
 }
 
 impl Drop for DropGuard {
@@ -183,14 +234,14 @@ impl Drop for DropGuard {
         for bean_spec in self.ready_beans.iter().rev() {
             debug!("bean {:?} is cleaning", bean_spec);
             // Call the drop function for each bean to perform cleanup.
-            (bean_spec.drop)();
+            (bean_spec.1)();
         }
         // Perform any other necessary cleanup here.
         debug!("Cleanup of beans completed.");
     }
 }
 
-impl Context {
+impl InitCtx {
 
     pub fn new(config: Config) -> Self {
         Self {
@@ -208,11 +259,16 @@ impl Context {
     /// Attempts to retrieve or initialize a bean instance of type `B` within the IoC container.
     /// This method ensures that all dependencies are resolved and the bean is ready for use.
     /// It also utilizes a cache to quickly check for circular dependencies, returning an error if one is detected.
-    pub fn get_or_init<'a, B: Bean>(&mut self) -> crate::Result<&'a B::Bean> {
-        let spec = B::spec();
+    pub fn get_or_init<'a, B>(&mut self) -> crate::Result<&'a <B::Spec as BeanSpec>::Bean>
+    where
+        B: ?Sized + Bean<Spec: 'static>,
+    {
+        let info = B::info();
+        let id = B::bean_id();
+
 
         // Check if the bean is already initialized and return it if so.
-        if self.ready_bean_ids.contains(&spec.bean_id) {
+        if self.ready_bean_ids.contains(&id) {
             return B::try_get();
         }
 
@@ -220,28 +276,32 @@ impl Context {
         // is currently in the process of being initialized.
         // Check if the bean is currently being initialized and return an error if so.
         for pending_spec in self.pending_chain.iter() {
-            if spec.bean_id.eq(&pending_spec.bean_id) {
+            if pending_spec.eq(&id) {
+                //todo make it more readable
                 return Err(IocError::CircularDependency);
             }
         }
-        self.pending_chain.push_back(spec);
-        debug!("bean {:?} is pending! ", spec);
+        self.pending_chain.push_back(info);
+        debug!("bean {:?} is pending! ", info);
 
         // The holder's `get_or_try_init` method will attempt to build the bean if it's not already initialized.
-        let result = B::holder().get_or_try_init(|| B::build(self));
+        let result = B::Spec::holder()
+            .get_or_try_init(||
+            <B::Construct as Construct>::build(self)
+            );
 
         let ready_bean = self.pending_chain
             .pop_back()
             .expect("Initialization stack is unexpectedly empty");
 
-        if ready_bean.bean_id != spec.bean_id {
+        if ready_bean != id {
             panic!("Initialization stack order corrupted");
         }
 
 
         if result.is_ok() {
-            self.ready_beans.push(ready_bean);
-            self.ready_bean_ids.insert(ready_bean.bean_id);
+            self.ready_beans.push((ready_bean, || B::Destroy::drop(B::get())));
+            self.ready_bean_ids.insert(id);
             debug!("bean {:?} is ready! ", ready_bean);
         }
 
@@ -270,7 +330,8 @@ mod tests {
         t: String,
     }
 
-    impl Bean for CfgA {
+    impl BeanSpec for CfgA {
+        type Bean = Self;
 
         fn holder<'a>() -> &'a OnceLock<Self::Bean> {
             static HOLDER: OnceLock<CfgA> = OnceLock::new();
@@ -280,16 +341,23 @@ mod tests {
 
     pub struct A(String);
 
-    impl BeanFactory for A {
+    impl Construct for A {
         type Bean = Self;
 
-        fn build(ctx: &mut Context) -> crate::Result<Self::Bean> {
+        fn build(ctx: &mut InitCtx) -> crate::Result<Self::Bean> {
             let cfg = ctx.get_or_init::<CfgA>()?;
             Ok(A(cfg.v.clone()))
         }
     }
 
-    impl Bean for A {
+    impl Destroy for A {
+        type Bean = Self;
+
+        fn drop(_: &Self::Bean) {}
+    }
+
+    impl BeanSpec for A {
+        type Bean = Self;
 
         fn holder<'a>() -> &'a OnceLock<Self::Bean> {
             static HOLDER: OnceLock<A> = OnceLock::new();
@@ -299,17 +367,24 @@ mod tests {
 
     struct B(&'static A, String);
 
-    impl BeanFactory for B {
+    impl Construct for B {
         type Bean = Self;
 
-        fn build(ctx: &mut Context) -> crate::Result<Self::Bean> {
+        fn build(ctx: &mut InitCtx) -> crate::Result<Self::Bean> {
             let cfg = ctx.get_or_init::<CfgA>()?;
             let a = ctx.get_or_init::<A>()?;
             Ok(B(a, cfg.t.clone()))
         }
     }
 
-    impl Bean for B {
+    impl Destroy for B {
+        type Bean = Self;
+
+        fn drop(_: &Self::Bean) {}
+    }
+
+    impl BeanSpec for B {
+        type Bean = Self;
 
         fn holder<'a>() -> &'a OnceLock<Self::Bean> {
             static HOLDER: OnceLock<B> = OnceLock::new();
@@ -327,7 +402,7 @@ mod tests {
             .init()?
             .into();
 
-        let mut ctx = Context::new(config);
+        let mut ctx = InitCtx::new(config);
 
         let a = ctx.get_or_init::<A>()?;
         let b = ctx.get_or_init::<B>()?;
@@ -349,8 +424,10 @@ mod tests {
 
         use cfg_rs::{Configuration, init_cargo_env};
 
-        use crate::{Bean, IocError};
-        use crate::bean::{BeanFactory, Context};
+        use crate::{
+            bean::{BeanSpec, Construct, Destroy, InitCtx},
+            IocError,
+        };
 
         #[derive(Debug)]
         pub struct A(String);
@@ -370,15 +447,16 @@ mod tests {
         #[derive(Debug)]
         pub struct F(&'static E, String);
 
-        impl BeanFactory for A {
+        impl Construct for A {
             type Bean = Self;
 
-            fn build(_: &mut Context) -> crate::Result<Self::Bean> {
+            fn build(_: &mut InitCtx) -> crate::Result<Self::Bean> {
                 Ok(A("this is A".to_string()))
             }
         }
 
-        impl Bean for A {
+        impl BeanSpec for A {
+            type Bean = Self;
 
             fn holder<'a>() -> &'a OnceLock<Self::Bean> {
                 static HOLDER: OnceLock<A> = OnceLock::new();
@@ -386,17 +464,22 @@ mod tests {
             }
         }
 
+        impl Destroy for A {
+            type Bean = Self;
+        }
 
-        impl BeanFactory for B {
+
+        impl Construct for B {
             type Bean = B;
 
-            fn build(ctx: &mut Context) -> crate::Result<Self::Bean> {
+            fn build(ctx: &mut InitCtx) -> crate::Result<Self::Bean> {
                 let a = ctx.get_or_init::<A>()?;
                 Ok(B(a, "this is B".to_string()))
             }
         }
 
-        impl Bean for B {
+        impl BeanSpec for B {
+            type Bean = Self;
 
             fn holder<'a>() -> &'a OnceLock<Self::Bean> {
                 static HOLDER: OnceLock<B> = OnceLock::new();
@@ -404,17 +487,22 @@ mod tests {
             }
         }
 
-        impl BeanFactory for C {
+        impl Destroy for B {
+            type Bean = Self;
+        }
+
+        impl Construct for C {
             type Bean = Self;
 
-            fn build(ctx: &mut Context) -> crate::Result<Self::Bean> {
+            fn build(ctx: &mut InitCtx) -> crate::Result<Self::Bean> {
                 let a = ctx.get_or_init::<A>()?;
                 let b = ctx.get_or_init::<B>()?;
                 Ok(C(a, b, "this is C".to_string()))
             }
         }
 
-        impl Bean for C {
+        impl BeanSpec for C {
+            type Bean = Self;
 
             fn holder<'a>() -> &'a OnceLock<Self::Bean> {
                 static HOLDER: OnceLock<C> = OnceLock::new();
@@ -422,17 +510,22 @@ mod tests {
             }
         }
 
-        impl BeanFactory for D {
+        impl Destroy for C {
+            type Bean = Self;
+        }
+
+        impl Construct for D {
             type Bean = Self;
 
-            fn build(ctx: &mut Context) -> crate::Result<Self::Bean> {
+            fn build(ctx: &mut InitCtx) -> crate::Result<Self::Bean> {
                 let c = ctx.get_or_init::<C>()?;
                 let f = ctx.get_or_init::<F>()?;
                 Ok(D(c, f, "this is D".to_string()))
             }
         }
 
-        impl Bean for D {
+        impl BeanSpec for D {
+            type Bean = Self;
 
             fn holder<'a>() -> &'a OnceLock<Self::Bean> {
                 static HOLDER: OnceLock<D> = OnceLock::new();
@@ -440,16 +533,21 @@ mod tests {
             }
         }
 
-        impl BeanFactory for E {
+        impl Destroy for D {
+            type Bean = Self;
+        }
+
+        impl Construct for E {
             type Bean = Self;
 
-            fn build(ctx: &mut Context) -> crate::Result<Self::Bean> {
+            fn build(ctx: &mut InitCtx) -> crate::Result<Self::Bean> {
                 let c = ctx.get_or_init::<D>()?;
                 Ok(E(c, "this is E".to_string()))
             }
         }
 
-        impl Bean for E {
+        impl BeanSpec for E {
+            type Bean = Self;
 
             fn holder<'a>() -> &'a OnceLock<Self::Bean> {
                 static HOLDER: OnceLock<E> = OnceLock::new();
@@ -457,21 +555,30 @@ mod tests {
             }
         }
 
-        impl BeanFactory for F {
+        impl Destroy for E {
+            type Bean = Self;
+        }
+
+        impl Construct for F {
             type Bean = Self;
 
-            fn build(ctx: &mut Context) -> crate::Result<Self::Bean> {
+            fn build(ctx: &mut InitCtx) -> crate::Result<Self::Bean> {
                 let e = ctx.get_or_init::<E>()?;
                 Ok(F(e, "this is E".to_string()))
             }
         }
 
-        impl Bean for F {
+        impl BeanSpec for F {
+            type Bean = Self;
 
             fn holder<'a>() -> &'a OnceLock<Self::Bean> {
                 static HOLDER: OnceLock<F> = OnceLock::new();
                 &HOLDER
             }
+        }
+
+        impl Destroy for F {
+            type Bean = Self;
         }
 
         #[test]
@@ -484,7 +591,7 @@ mod tests {
                 .init()?
                 .into();
 
-            let mut ctx = Context::new(config);
+            let mut ctx = InitCtx::new(config);
 
             let a = ctx.get_or_init::<A>()?;
             let b = ctx.get_or_init::<B>()?;
