@@ -14,7 +14,7 @@ version = "3"
 
 [dependencies.poem-openapi]
 workspace = true
-features = ["swagger-ui"]
+features = ["swagger-ui", "openapi-explorer"]
 
 [dependencies.tokio]
 version = "1"

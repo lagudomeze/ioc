@@ -29,9 +29,12 @@ where
 
     let ui = api_service.swagger_ui();
 
+    let spec = api_service.spec_endpoint_yaml();
+
     let app = Route::new()
         .nest("/", api_service)
         .nest("/ui", ui)
+        .nest("/ui/spec/yaml", spec)
         .with_if(config.tracing, Tracing::default());
 
     let listener = TcpListener::bind(config.addr.as_str());
