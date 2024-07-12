@@ -1,6 +1,6 @@
-use proc_macro2::{Ident, TokenStream};
+use proc_macro2::TokenStream;
 use quote::quote;
-use syn::{ItemImpl, parse_quote, Path, PathSegment};
+use syn::{ItemImpl, parse_quote, Path};
 
 use ioc_scan::{Module, Result, Scanner, Transport};
 
@@ -13,13 +13,7 @@ impl Scanner for Mvcs {
     fn item_impl(&mut self, module_info: &Module, i: &ItemImpl) -> Result<()> {
         for attr in i.attrs.iter() {
             if attr.path().is_ident("mvc") {
-                let raw_type: Ident = {
-                    let raw_type = &i.self_ty;
-                    parse_quote!(#raw_type)
-                };
-
-                let mut find_type = module_info.module_path().clone();
-                find_type.segments.push(PathSegment::from(raw_type));
+                let find_type = module_info.build_path(&i.self_ty);
                 self.types.push(find_type);
             }
         }

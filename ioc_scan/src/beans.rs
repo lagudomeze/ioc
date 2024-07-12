@@ -1,6 +1,6 @@
-use proc_macro2::{Ident, TokenStream};
+use proc_macro2::TokenStream;
 use quote::quote;
-use syn::{ItemImpl, ItemStruct, parse_quote, Path, PathSegment};
+use syn::{ItemImpl, ItemStruct, Path};
 
 use crate::{
     scan::Module,
@@ -33,8 +33,7 @@ impl Scanner for Beans {
             if attr.path().is_ident("derive") {
                 attr.parse_nested_meta(|meta| {
                     if meta.path.is_ident("Bean") {
-                        let mut find_type = module_info.module_path().clone();
-                        find_type.segments.push(PathSegment::from(i.ident.clone()));
+                        let find_type = module_info.build_path(&i.ident);
                         self.types.push(find_type);
                     }
                     Ok(())
@@ -47,10 +46,7 @@ impl Scanner for Beans {
     fn item_impl(&mut self, module_info: &Module, i: &ItemImpl) -> crate::Result<()> {
         for attr in i.attrs.iter() {
             if attr.path().is_ident("bean") {
-                let mut find_type = module_info.module_path().clone();
-                let self_ty = i.self_ty.as_ref();
-                let ty: Ident = parse_quote!( #self_ty );
-                find_type.segments.push(PathSegment::from(ty));
+                let find_type = module_info.build_path(&i.self_ty);
                 self.types.push(find_type);
             }
         }
@@ -79,5 +75,25 @@ impl Transport for Beans {
         Ok(quote! {
             #(#crates::all_beans_with::<ioc::Init>(&mut ctx)?; )*
         })
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use quote::quote;
+    use syn::{parse_quote, Path, Type};
+
+    #[test]
+    fn test() {
+        let path: Path = parse_quote!(crate);
+
+        let self_ty: Type = parse_quote!(BeanA);
+        {
+            let path = &path;
+            let self_ty = &self_ty;
+
+            let full_path_ty: Type = parse_quote!(#path :: #self_ty);
+            println!("{}", quote!(#full_path_ty).to_string());
+        }
     }
 }

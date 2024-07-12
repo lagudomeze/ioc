@@ -4,21 +4,13 @@ use std::{fmt, fs::read_to_string, mem::swap, path::{
 }};
 use std::env::current_dir;
 use std::fmt::{Display, Formatter};
-
-use syn::{
-    Ident,
-    ItemImpl,
-    ItemMod,
-    ItemStruct,
-    Path,
-    PathSegment,
-    visit::{
-        Visit,
-        visit_item_impl,
-        visit_item_mod,
-        visit_item_struct,
-    }
-};
+use quote::ToTokens;
+use syn::{Ident, ItemImpl, ItemMod, ItemStruct, parse_quote, Path, PathSegment, visit::{
+    Visit,
+    visit_item_impl,
+    visit_item_mod,
+    visit_item_struct,
+}};
 
 use crate::{
     Error,
@@ -99,12 +91,21 @@ impl Module {
         })
     }
 
-    pub fn module_path(&self) -> &Path {
-        &self.module_path
-    }
-
     pub(crate) fn file(&self) -> &FsPath {
         &self.file
+    }
+
+    pub fn build_path(&self, ty: &impl ToTokens) -> Path {
+        let module_path = &self.module_path;
+        if module_path.segments.is_empty() {
+            if module_path.leading_colon.is_none() {
+                parse_quote!(#ty)
+            } else {
+                parse_quote!(::#ty)
+            }
+        } else {
+            parse_quote!(#module_path :: #ty)
+        }
     }
 }
 
