@@ -96,7 +96,7 @@ pub use ioc_core::{
     Result,
     Wrapper
 };
-pub use ioc_core_derive::{Bean,bean};
+pub use ioc_core_derive::{Bean, bean};
 pub use ioc_macro::{export, import};
 #[cfg(feature = "mvc")]
 pub use ioc_mvc::{mvc, OpenApi, OpenApiExt, run_mvc, WebConfig};
@@ -129,12 +129,6 @@ pub mod __private {
     };
 
     pub use crate::log::LogOptions;
-
-    pub fn pre_init(_ctx: &mut InitCtx) -> Result<()> {
-        #[cfg(feature = "mvc")]
-        _ctx.get_or_init::<ioc_mvc::WebConfig>()?;
-        Ok(())
-    }
 }
 
 #[macro_export]
