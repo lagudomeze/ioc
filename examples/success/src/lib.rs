@@ -47,9 +47,7 @@ struct AnotherBeanA;
 impl BeanSpec for AnotherBeanA {
     type Bean = A;
 
-    fn build<I>(ctx: &mut I) -> ioc::Result<Self::Bean>
-    where
-        I: InitContext,
+    fn build(ctx: &mut impl InitContext) -> ioc::Result<Self::Bean>
     {
         Ok(A {
             _v: ctx.get_config::<_>("aaa.t")?,

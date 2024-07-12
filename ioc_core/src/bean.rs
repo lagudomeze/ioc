@@ -8,6 +8,7 @@ use std::{
     sync::OnceLock,
 };
 use std::fmt::{Display, Formatter};
+
 use crate::{
     InitContext,
     IocError,
@@ -127,9 +128,7 @@ pub trait BeanSpec {
         BeanId(Self::spec_type_id())
     }
 
-    fn build<I>(ctx: &mut I) -> crate::Result<Self::Bean>
-    where
-        I: InitContext;
+    fn build(ctx: &mut impl InitContext) -> crate::Result<Self::Bean>;
 
     fn holder<'a>() -> &'a OnceLock<Self::Bean>;
 
@@ -181,9 +180,7 @@ mod tests {
             &HOLDER
         }
 
-        fn build<I>(ctx: &mut I) -> crate::Result<Self::Bean>
-        where
-            I: InitContext,
+        fn build(ctx: &mut impl InitContext) -> crate::Result<Self::Bean>
         {
             ctx.get_predefined_config()
         }
@@ -199,9 +196,7 @@ mod tests {
             &HOLDER
         }
 
-        fn build<I>(ctx: &mut I) -> crate::Result<Self::Bean>
-        where
-            I: InitContext,
+        fn build(ctx: &mut impl InitContext) -> crate::Result<Self::Bean>
         {
             let cfg_a = ctx.get_or_init::<CfgA>()?;
 
@@ -219,9 +214,7 @@ mod tests {
             &HOLDER
         }
 
-        fn build<I>(ctx: &mut I) -> crate::Result<Self::Bean>
-        where
-            I: InitContext,
+        fn build(ctx: &mut impl InitContext) -> crate::Result<Self::Bean>
         {
             let cfg = ctx.get_or_init::<CfgA>()?;
             let a = ctx.get_or_init::<A>()?;
@@ -289,103 +282,91 @@ mod tests {
         impl BeanSpec for A {
             type Bean = Self;
 
+            fn build(_: &mut impl InitContext) -> crate::Result<Self::Bean> {
+                Ok(A("this is A".to_string()))
+            }
+
             fn holder<'a>() -> &'a OnceLock<Self::Bean> {
                 static HOLDER: OnceLock<A> = OnceLock::new();
                 &HOLDER
-            }
-
-            fn build<I>(_: &mut I) -> crate::Result<Self::Bean>
-            where
-                I: InitContext,
-            {
-                Ok(A("this is A".to_string()))
             }
         }
 
         impl BeanSpec for B {
             type Bean = Self;
 
-            fn holder<'a>() -> &'a OnceLock<Self::Bean> {
-                static HOLDER: OnceLock<B> = OnceLock::new();
-                &HOLDER
-            }
-
-            fn build<I>(ctx: &mut I) -> crate::Result<Self::Bean>
-            where
-                I: InitContext,
+            fn build(ctx: &mut impl InitContext) -> crate::Result<Self::Bean>
             {
                 let a = ctx.get_or_init::<A>()?;
                 Ok(B(a, "this is B".to_string()))
+            }
+
+            fn holder<'a>() -> &'a OnceLock<Self::Bean> {
+                static HOLDER: OnceLock<B> = OnceLock::new();
+                &HOLDER
             }
         }
 
         impl BeanSpec for C {
             type Bean = Self;
 
-            fn holder<'a>() -> &'a OnceLock<Self::Bean> {
-                static HOLDER: OnceLock<C> = OnceLock::new();
-                &HOLDER
-            }
-
-            fn build<I>(ctx: &mut I) -> crate::Result<Self::Bean>
-            where
-                I: InitContext,
+            fn build(ctx: &mut impl InitContext) -> crate::Result<Self::Bean>
             {
                 let a = ctx.get_or_init::<A>()?;
                 let b = ctx.get_or_init::<B>()?;
                 Ok(C(a, b, "this is C".to_string()))
+            }
+
+            fn holder<'a>() -> &'a OnceLock<Self::Bean> {
+                static HOLDER: OnceLock<C> = OnceLock::new();
+                &HOLDER
             }
         }
 
         impl BeanSpec for D {
             type Bean = Self;
 
-            fn holder<'a>() -> &'a OnceLock<Self::Bean> {
-                static HOLDER: OnceLock<D> = OnceLock::new();
-                &HOLDER
-            }
-
-            fn build<I>(ctx: &mut I) -> crate::Result<Self::Bean>
-            where
-                I: InitContext,
+            fn build(ctx: &mut impl InitContext) -> crate::Result<Self::Bean>
             {
                 let c = ctx.get_or_init::<C>()?;
                 let f = ctx.get_or_init::<F>()?;
                 Ok(D(c, f, "this is D".to_string()))
+            }
+
+
+            fn holder<'a>() -> &'a OnceLock<Self::Bean> {
+                static HOLDER: OnceLock<D> = OnceLock::new();
+                &HOLDER
             }
         }
 
         impl BeanSpec for E {
             type Bean = Self;
 
-            fn holder<'a>() -> &'a OnceLock<Self::Bean> {
-                static HOLDER: OnceLock<E> = OnceLock::new();
-                &HOLDER
-            }
-
-            fn build<I>(ctx: &mut I) -> crate::Result<Self::Bean>
-            where
-                I: InitContext,
+            fn build(ctx: &mut impl InitContext) -> crate::Result<Self::Bean>
             {
                 let c = ctx.get_or_init::<D>()?;
                 Ok(E(c, "this is E".to_string()))
+            }
+
+            fn holder<'a>() -> &'a OnceLock<Self::Bean> {
+                static HOLDER: OnceLock<E> = OnceLock::new();
+                &HOLDER
             }
         }
 
         impl BeanSpec for F {
             type Bean = Self;
 
-            fn holder<'a>() -> &'a OnceLock<Self::Bean> {
-                static HOLDER: OnceLock<F> = OnceLock::new();
-                &HOLDER
-            }
-
-            fn build<I>(ctx: &mut I) -> crate::Result<Self::Bean>
-            where
-                I: InitContext,
+            fn build(ctx: &mut impl InitContext) -> crate::Result<Self::Bean>
             {
                 let e = ctx.get_or_init::<E>()?;
                 Ok(F(e, "this is E".to_string()))
+            }
+
+            fn holder<'a>() -> &'a OnceLock<Self::Bean> {
+                static HOLDER: OnceLock<F> = OnceLock::new();
+                &HOLDER
             }
         }
 

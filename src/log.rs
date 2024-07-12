@@ -98,10 +98,7 @@ mod tracing_log {
     impl BeanSpec for LogPatcher {
         type Bean = Self;
 
-        fn build<I>(_: &mut I) -> Result<Self::Bean>
-        where
-            I: InitContext,
-        {
+        fn build(_: &mut impl InitContext) -> crate::Result<Self::Bean> {
             panic!("do not run here!")
         }
     }

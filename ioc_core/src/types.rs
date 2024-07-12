@@ -37,10 +37,7 @@ mod tests {
                     &HOLDER
                 }
 
-                fn build<I>(_: &mut I) -> crate::Result<Self::Bean>
-                where
-                    I: InitContext,
-                {
+                fn build(_: &mut impl InitContext) -> crate::Result<Self::Bean> {
                     Ok(A)
                 }
             }
@@ -60,10 +57,7 @@ mod tests {
                     &HOLDER
                 }
 
-                fn build<I>(_: &mut I) -> crate::Result<Self::Bean>
-                where
-                    I: InitContext,
-                {
+                fn build(_: &mut impl InitContext) -> crate::Result<Self::Bean> {
                     Ok(B)
                 }
             }

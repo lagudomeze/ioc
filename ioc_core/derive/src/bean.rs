@@ -159,9 +159,7 @@ impl BuildMethod<'_> {
                 }
             };
             Ok(quote! {
-                fn build<I>(ctx: &mut I) -> #ioc::Result<Self::Bean>
-                where
-                    I: #ioc::InitContext {
+                fn build(ctx: &mut impl #ioc::InitContext) -> #ioc::Result<Self::Bean> {
                     Ok(#initializers)
                 }
             })

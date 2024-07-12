@@ -64,7 +64,7 @@
 //! impl BeanSpec for AnotherBeanA {
 //!     type Bean = A;
 //!
-//!     fn build<I>(ctx: &mut I) -> Result<Self::Bean> where I: InitContext {
+//!     fn build(ctx: &mut impl InitContext) -> Result<Self::Bean> {
 //!         A::build(ctx)
 //!     }
 //! }

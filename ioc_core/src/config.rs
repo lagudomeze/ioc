@@ -103,10 +103,7 @@ mod tests {
             &HOLDER
         }
 
-        fn build<I>(ctx: &mut I) -> crate::Result<Self::Bean>
-        where
-            I: InitContext,
-        {
+        fn build(ctx: &mut impl InitContext) -> crate::Result<Self::Bean> {
             ctx.get_predefined_config()
         }
     }
