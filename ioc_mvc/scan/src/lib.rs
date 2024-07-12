@@ -1,15 +1,8 @@
-use darling::FromMeta;
 use proc_macro2::{Ident, TokenStream};
 use quote::quote;
 use syn::{ItemImpl, parse_quote, Path, PathSegment};
 
 use ioc_scan::{Module, Result, Scanner, Transport};
-
-#[derive(Default, FromMeta)]
-#[darling(default)]
-struct LoadTypesParam {
-    root: Option<String>,
-}
 
 #[derive(Debug, Default)]
 pub struct Mvcs {

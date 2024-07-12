@@ -1,7 +1,6 @@
 // examples/hello.rs
 
-use ioc::{Bean, export, InitCtx, run};
-use ioc_core::Construct;
+use ioc::{Bean, bean, BeanSpec, export, InitContext, run};
 
 #[derive(Bean)]
 #[bean(ioc_crate = ioc)]
@@ -34,14 +33,16 @@ struct A {
     _s: S,
 }
 
-#[derive(Bean)]
-#[bean(construct = AnotherBeanA, ioc_crate = ioc)]
 struct AnotherBeanA;
 
-impl Construct for AnotherBeanA {
+#[bean(name = "xxxx")]
+impl BeanSpec for AnotherBeanA {
     type Bean = A;
 
-    fn build(ctx: &mut InitCtx) -> ioc::Result<Self::Bean> {
+    fn build<I>(ctx: &mut I) -> ioc::Result<Self::Bean>
+    where
+        I: InitContext,
+    {
         Ok(A {
             _v: ctx.get_config::<_>("aaa.t")?,
             _s: S("hihi"),

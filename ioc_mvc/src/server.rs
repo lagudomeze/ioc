@@ -22,7 +22,7 @@ async fn run_server<T>(api: T, title: &str, version: &str) -> ioc_core::Result<(
 where
     T: 'static + OpenApi,
 {
-    use ioc_core::Bean;
+    use ioc_core::BeanSpec;
     let config = WebConfig::try_get()?;
 
     let api_service = OpenApiService::new(api, title, version);

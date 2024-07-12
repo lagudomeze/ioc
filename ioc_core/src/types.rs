@@ -1,4 +1,4 @@
-use crate::{Bean, Result};
+use crate::{BeanSpec, Result};
 
 pub trait Method<T> {
     fn run(ctx: T) -> Result<T>;
@@ -9,7 +9,7 @@ pub trait BeanFamily {
 
     type Method<B>: Method<Self::Ctx>
     where
-        B: Bean<Spec:'static>;
+        B: 'static + BeanSpec;
 }
 
 #[cfg(test)]
@@ -25,21 +25,9 @@ mod tests {
         mod a {
             use std::sync::OnceLock;
 
-            use crate::{BeanSpec, Construct, Destroy, InitCtx};
+            use crate::{BeanSpec, InitContext};
 
             pub struct A;
-
-            impl Construct for A {
-                type Bean = Self;
-
-                fn build(_ctx: &mut InitCtx) -> crate::Result<Self::Bean> {
-                    Ok(A)
-                }
-            }
-
-            impl Destroy for A {
-                type Bean = Self;
-            }
 
             impl BeanSpec for A {
                 type Bean = Self;
@@ -48,26 +36,21 @@ mod tests {
                     static HOLDER: OnceLock<A> = OnceLock::new();
                     &HOLDER
                 }
+
+                fn build<I>(_: &mut I) -> crate::Result<Self::Bean>
+                where
+                    I: InitContext,
+                {
+                    Ok(A)
+                }
             }
         }
         mod b {
             use std::sync::OnceLock;
 
-            use crate::{BeanSpec, Construct, Destroy, InitCtx};
+            use crate::{BeanSpec, InitContext};
 
             pub struct B;
-
-            impl Construct for B {
-                type Bean = B;
-
-                fn build(_ctx: &mut InitCtx) -> crate::Result<Self::Bean> {
-                    Ok(B)
-                }
-            }
-
-            impl Destroy for B {
-                type Bean = Self;
-            }
 
             impl BeanSpec for B {
                 type Bean = Self;
@@ -75,6 +58,13 @@ mod tests {
                 fn holder<'a>() -> &'a OnceLock<Self::Bean> {
                     static HOLDER: OnceLock<B> = OnceLock::new();
                     &HOLDER
+                }
+
+                fn build<I>(_: &mut I) -> crate::Result<Self::Bean>
+                where
+                    I: InitContext,
+                {
+                    Ok(B)
                 }
             }
         }

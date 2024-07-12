@@ -1,19 +1,17 @@
 use darling::{
-    ast::{
-        Data,
-        Style,
-    },
+    ast::Data,
     Error,
     FromDeriveInput,
     FromField,
     FromMeta,
     Result,
 };
+use darling::ast::Style;
 use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote, ToTokens};
 use syn::{Path, Type};
 
-fn resolve_ioc_crate(ioc_crate: &Option<Path>) -> Result<TokenStream> {
+pub(crate) fn resolve_ioc_crate(ioc_crate: &Option<Path>) -> Result<TokenStream> {
     if let Some(ioc_crate) = ioc_crate {
         return Ok(quote! { #ioc_crate });
     } else {
@@ -59,7 +57,7 @@ pub struct BeanField {
 
 #[derive(Debug, FromDeriveInput)]
 #[darling(attributes(bean))]
-pub(crate) struct BeanStruct {
+pub(crate) struct BeanSpecStruct {
     /// The struct ident.
     ident: Ident,
 
@@ -69,12 +67,6 @@ pub(crate) struct BeanStruct {
 
     #[darling(default)]
     name: Option<String>,
-    #[darling(default)]
-    spec: Option<Path>,
-    #[darling(default)]
-    construct: Option<Path>,
-    #[darling(default)]
-    destroy: Option<Path>,
     #[darling(default)]
     ioc_crate: Option<Path>,
 }
@@ -94,7 +86,6 @@ impl ToTokens for FieldInitializer<'_> {
             ref ident,
             ref inject,
         } = self.0;
-
 
         let initializer = match inject {
             Inject::Bean => {
@@ -124,14 +115,19 @@ impl ToTokens for FieldInitializer<'_> {
     }
 }
 
-struct ConstructMaker<'a> (&'a Ident, &'a Data<(), BeanField>, &'a TokenStream);
+struct BuildMethod<'a> {
+    ident: &'a Ident,
+    fields: &'a Data<(), BeanField>,
+    ioc: &'a TokenStream,
+}
 
-impl ConstructMaker<'_> {
+impl BuildMethod<'_> {
     fn generate(&self) -> Result<TokenStream> {
-        let Self(ident, fields, ioc) = *self;
+        let Self { ident, fields, ioc } = *self;
 
         if !fields.is_struct() {
-            return Err(Error::unsupported_shape("only struct is supported").with_span(ident));
+            return Err(Error::unsupported_shape("only struct is supported")
+                .with_span(ident));
         } else {
             let struct_fields = fields
                 .as_ref()
@@ -144,8 +140,7 @@ impl ConstructMaker<'_> {
                 .map(FieldInitializer::from);
 
             let initializers = quote! {
-                #(#field_initializers),
-                *
+                #(#field_initializers),*
             };
 
             let initializers = match struct_fields.style {
@@ -164,28 +159,34 @@ impl ConstructMaker<'_> {
                 }
             };
             Ok(quote! {
-                impl #ioc::Construct for #ident {
-                    type Bean = Self;
-
-                    fn build(ctx: &mut #ioc::InitCtx) -> #ioc::Result<Self::Bean> {
-                        Ok(#initializers)
-                    }
+                fn build<I>(ctx: &mut I) -> #ioc::Result<Self::Bean>
+                where
+                    I: #ioc::InitContext {
+                    Ok(#initializers)
                 }
             })
         }
     }
 }
 
-struct SpecMaker<'a>(
-    &'a Ident,
-    &'a Option<String>,
-    &'a TokenStream,
-    &'a TokenStream,
-);
+impl BeanSpecStruct {
+    pub(crate) fn generate(&self) -> Result<TokenStream> {
+        let Self {
+            ref ident,
+            ref data,
+            ref name,
+            ref ioc_crate,
+        } = *self;
 
-impl ToTokens for SpecMaker<'_> {
-    fn to_tokens(&self, tokens: &mut TokenStream) {
-        let Self(ident, name, bean_type, ioc) = *self;
+        let ioc = resolve_ioc_crate(ioc_crate)?;
+
+        let build_method = BuildMethod {
+            ident,
+            fields: data,
+            ioc: &ioc,
+        };
+
+        let build_method = build_method.generate()?;
 
         let name = if let Some(name) = name {
             quote! { #name }
@@ -193,89 +194,32 @@ impl ToTokens for SpecMaker<'_> {
             quote! { stringify!(#ident) }
         };
 
-        tokens.extend(quote! {
+
+        Ok(quote! {
             impl #ioc::BeanSpec for #ident {
-                type Bean = #bean_type;
+                type Bean = Self;
 
                 fn name() -> &'static str {
                     #name
                 }
+
+                #build_method
+
+                fn drop(bean: &Self::Bean) {
+                    // drop
+                }
+
                 fn holder<'a>() -> &'a std::sync::OnceLock<Self::Bean> {
                     use std::sync::OnceLock;
-                    static HOLDER: OnceLock<#bean_type> = OnceLock::new();
+                    static HOLDER: OnceLock<#ident> = OnceLock::new();
                     &HOLDER
                 }
             }
-        });
+        })
     }
 }
 
-impl BeanStruct {
-    pub(crate) fn generate(&self) -> Result<TokenStream> {
-        let Self {
-            ref ident,
-            ref data,
-            ref name,
-            ref spec,
-            ref construct,
-            ref destroy,
-            ref ioc_crate,
-        } = *self;
-
-        let ioc = resolve_ioc_crate(ioc_crate)?;
-
-        let mut tokens = TokenStream::new();
-
-        let mut bean_type = quote! { #ident };
-
-        let mut patched_bean = false;
-
-        // make construct
-        let construct = if let Some(path) = construct {
-            bean_type = quote! { <#path as #ioc::Construct>::Bean };
-            patched_bean = true;
-            quote! { #path }
-        } else {
-            tokens.extend(ConstructMaker(ident, data, &ioc).generate()?);
-            quote! { #ident }
-        };
-
-        let spec = if let Some(path) = spec {
-            patched_bean = true;
-            quote! { #path }
-        } else {
-            SpecMaker(ident, name, &bean_type, &ioc).to_tokens(&mut tokens);
-            quote! { #ident }
-        };
-
-        let destroy = if let Some(path) = destroy {
-            patched_bean = true;
-            quote! { #path }
-        } else {
-            tokens.extend(quote! {
-                impl #ioc::Destroy for #ident {
-                    type Bean = #bean_type;
-                    fn drop(bean: &Self::Bean) {
-                        // drop
-                    }
-                }
-            });
-            quote! { #ident }
-        };
-        if patched_bean {
-            tokens.extend(quote! {
-                impl #ioc::Bean for #ident {
-                    type Spec = #spec;
-                    type Construct = #construct;
-                    type Destroy = #destroy;
-                }
-            });
-        }
-        Ok(tokens)
-    }
-}
-
-impl ToTokens for BeanStruct {
+impl ToTokens for BeanSpecStruct {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         match self.generate() {
             Ok(tt) => {
@@ -291,6 +235,7 @@ impl ToTokens for BeanStruct {
 #[cfg(test)]
 mod test {
     use syn::{parse_quote, parse_str};
+
     use super::*;
 
     #[test]
@@ -305,7 +250,7 @@ mod test {
         "#;
 
         let parsed = parse_str(input).unwrap();
-        let result = BeanStruct::from_derive_input(&parsed);
+        let result = BeanSpecStruct::from_derive_input(&parsed);
         if let Err(err) = result {
             println!("err 0:{}", err.write_errors().to_string());
             return;
@@ -335,7 +280,7 @@ mod test {
         "#;
 
         let parsed = parse_str(input).unwrap();
-        let result = BeanStruct::from_derive_input(&parsed);
+        let result = BeanSpecStruct::from_derive_input(&parsed);
         if let Err(err) = result {
             println!("err 0:{}", err.write_errors().to_string());
             return;
@@ -369,7 +314,7 @@ mod test {
         "#;
 
         let parsed = parse_str(input).unwrap();
-        let result = BeanStruct::from_derive_input(&parsed);
+        let result = BeanSpecStruct::from_derive_input(&parsed);
         if let Err(err) = result {
             println!("err 0:{}", err.write_errors().to_string());
             return;

@@ -50,7 +50,10 @@ mod tracing_log {
         reload::Handle
     };
 
-    use crate::{Bean, Construct, InitCtx, Result, BeanSpec};
+    use ioc_core::InitContext;
+    use ioc_core_derive::bean;
+
+    use crate::{BeanSpec, Result};
 
     pub struct LogOptions {
         default_directive: Directive,
@@ -83,28 +86,28 @@ mod tracing_log {
 
             builder.init();
 
-            <LogPatcher as Bean>::Spec::holder().get_or_init(|| { LogPatcher(handle) });
+            LogPatcher::holder().get_or_init(|| { LogPatcher(handle) });
 
             Ok(())
         }
     }
 
-    #[derive(Bean)]
-    #[bean(construct = Init)]
-    pub struct LogPatcher(#[inject(default)]Handle<EnvFilter, Formatter>);
+    pub struct LogPatcher(Handle<EnvFilter, Formatter>);
 
-    pub struct Init;
+    #[bean]
+    impl BeanSpec for LogPatcher {
+        type Bean = Self;
 
-    impl Construct for Init {
-        type Bean = LogPatcher;
-
-        fn build(_: &mut InitCtx) -> Result<Self::Bean> {
+        fn build<I>(_: &mut I) -> Result<Self::Bean>
+        where
+            I: InitContext,
+        {
             panic!("do not run here!")
         }
     }
 
     impl LogPatcher {
-        pub fn reload<'a, I>(&self, value: I) -> crate::Result<()>
+        pub fn reload<'a, I>(&self, value: I) -> Result<()>
         where
             I: IntoIterator<Item: AsRef<str>>,
         {

@@ -1,33 +1,8 @@
 use std::fmt::{Debug, Formatter};
 
-use cfg_rs::{Configuration, FromConfigWithPrefix};
+use cfg_rs::Configuration;
 
-use crate::bean::{Construct, Destroy, InitCtx};
 use crate::IocError;
-
-/// Construct for Configuration which implements `cfg_rs::FromConfigWithPrefix`
-impl<C> Construct for C
-where
-    C: FromConfigWithPrefix,
-{
-    type Bean = Self;
-
-    fn build(ctx: &mut InitCtx) -> crate::Result<Self::Bean> {
-        Ok(ctx.config.source.get_predefined()?)
-    }
-}
-
-/// Destroy for Configuration
-impl<C> Destroy for C
-where
-    C: FromConfigWithPrefix,
-{
-    type Bean = Self;
-
-    fn drop(_bean: &Self::Bean) {
-        // do nothing
-    }
-}
 
 /// Ioc Context Configuration, just simply wrap `cfg_rs::Configuration`
 pub struct Config {
@@ -106,8 +81,11 @@ mod tests {
 
     use cfg_rs::*;
 
-    use crate::{Bean, BeanSpec};
-    use crate::bean::InitCtx;
+    use crate::{
+        BeanSpec,
+        init::InitContext,
+    };
+    use crate::init::InitCtx;
 
     #[derive(FromConfig)]
     #[config(prefix = "cfg_test")]
@@ -123,6 +101,13 @@ mod tests {
         fn holder<'a>() -> &'a OnceLock<Self::Bean> {
             static HOLDER: OnceLock<Test> = OnceLock::new();
             &HOLDER
+        }
+
+        fn build<I>(ctx: &mut I) -> crate::Result<Self::Bean>
+        where
+            I: InitContext,
+        {
+            ctx.get_predefined_config()
         }
     }
 

@@ -1,6 +1,6 @@
 // examples/main
 
-use ioc::{Bean, InitCtx, export, Construct};
+use ioc::{Bean, export, bean, BeanSpec, InitContext};
 
 mod test;
 
@@ -41,14 +41,16 @@ pub struct A {
     _s: S,
 }
 
-#[derive(Bean)]
-#[bean(construct = AnotherBeanA)]
 struct AnotherBeanA;
 
-impl Construct for AnotherBeanA {
+#[bean]
+impl BeanSpec for AnotherBeanA {
     type Bean = A;
 
-    fn build(ctx: &mut InitCtx) -> ioc::Result<Self::Bean> {
+    fn build<I>(ctx: &mut I) -> ioc::Result<Self::Bean>
+    where
+        I: InitContext,
+    {
         Ok(A {
             _v: ctx.get_config::<_>("aaa.t")?,
             _s: S("hihi"),

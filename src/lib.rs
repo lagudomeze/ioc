@@ -58,9 +58,17 @@
 //! #[bean(ioc_crate = ioc)]
 //! struct A;
 //!
-//! #[derive(Bean)]
-//! #[bean(construct = A, ioc_crate = ioc)]
 //! struct AnotherBeanA;
+//!
+//! #[bean(ioc_crate = ioc, name = "__a__")]
+//! impl BeanSpec for AnotherBeanA {
+//!     type Bean = A;
+//!
+//!     fn build<I>(ctx: &mut I) -> Result<Self::Bean> where I: InitContext {
+//!         A::build(ctx)
+//!     }
+//! }
+//!
 //!
 //! #[derive(Bean)]
 //! #[bean(name = "my_bean", ioc_crate = ioc)]
@@ -77,20 +85,18 @@
 
 pub use ioc_core::{
     AppConfigLoader,
-    Bean,
     BeanFamily,
     BeanSpec,
     Config,
-    Construct,
-    Destroy,
     Init,
+    InitContext,
     InitCtx,
     IocError,
     Method,
     Result,
     Wrapper
 };
-pub use ioc_core_derive::Bean;
+pub use ioc_core_derive::{Bean,bean};
 pub use ioc_macro::{export, import};
 #[cfg(feature = "mvc")]
 pub use ioc_mvc::{mvc, OpenApi, OpenApiExt, run_mvc, WebConfig};
