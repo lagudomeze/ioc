@@ -7,7 +7,7 @@ use std::{
     },
     sync::OnceLock,
 };
-
+use std::fmt::{Display, Formatter};
 use crate::{
     InitContext,
     IocError,
@@ -23,6 +23,16 @@ pub struct BeanInfo {
     pub(crate) spec_name: &'static str,
     /// The `TypeId` of the bean spec's type, used to ensure type safety in the container.
     pub(crate) spec_spec_id: TypeId,
+}
+
+impl Display for BeanInfo {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("BeanInfo")
+            .field("name", &self.name)
+            .field("bean_type_name", &self.bean_type_name)
+            .field("spec_name", &self.spec_name)
+            .finish()
+    }
 }
 
 impl Hash for BeanInfo {
