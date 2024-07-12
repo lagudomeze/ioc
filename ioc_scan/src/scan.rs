@@ -1,9 +1,18 @@
-use std::{fmt, fs::read_to_string, mem::swap, path::{
-    Path as FsPath,
-    PathBuf,
-}};
-use std::env::current_dir;
-use std::fmt::{Display, Formatter};
+use std::{
+    env::current_dir,
+    fmt::{
+        self,
+        Display,
+        Formatter,
+    },
+    fs::read_to_string,
+    mem::swap,
+    path::{
+        Path as FsPath,
+        PathBuf,
+    },
+};
+
 use quote::ToTokens;
 use syn::{Ident, ItemImpl, ItemMod, ItemStruct, parse_quote, Path, PathSegment, visit::{
     Visit,
