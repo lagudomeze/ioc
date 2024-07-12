@@ -1,6 +1,6 @@
-use proc_macro2::TokenStream;
+use proc_macro2::{Ident, TokenStream};
 use quote::quote;
-use syn::{ItemStruct, Path, PathSegment};
+use syn::{ItemImpl, ItemStruct, parse_quote, Path, PathSegment};
 
 use crate::{
     scan::Module,
@@ -39,6 +39,19 @@ impl Scanner for Beans {
                     }
                     Ok(())
                 })?;
+            }
+        }
+        Ok(())
+    }
+
+    fn item_impl(&mut self, module_info: &Module, i: &ItemImpl) -> crate::Result<()> {
+        for attr in i.attrs.iter() {
+            if attr.path().is_ident("bean") {
+                let mut find_type = module_info.module_path().clone();
+                let self_ty = i.self_ty.as_ref();
+                let ty: Ident = parse_quote!( #self_ty );
+                find_type.segments.push(PathSegment::from(ty));
+                self.types.push(find_type);
             }
         }
         Ok(())
