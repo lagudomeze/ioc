@@ -35,7 +35,7 @@ impl Transport for Mvcs {
             // here only support current crate mvc scan
             pub fn all_mvcs<T>(api:T) -> impl ioc::OpenApiExt
                 where T: ioc::OpenApiExt {
-                use ioc::{OpenApiExt, Bean};
+                use ioc::{OpenApiExt, BeanSpec};
                 api.join((#(crate::#types::get(),)*))
             }
         })
