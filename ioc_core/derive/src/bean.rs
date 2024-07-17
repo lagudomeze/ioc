@@ -39,14 +39,15 @@ mod meta {
         FromMeta,
         Result,
     };
-    use syn::{Expr, Lit, Meta, Path};
+    use darling::util::path_to_string;
+    use syn::{Expr, Meta, Path};
 
     #[derive(Debug, PartialEq)]
     pub(crate) enum ConfigMeta {
         Trivial,
         Named {
             name: String,
-            default: Option<Lit>,
+            default: Option<Expr>,
         },
     }
 
@@ -57,18 +58,65 @@ mod meta {
 
         fn from_list(items: &[NestedMeta]) -> Result<Self> {
             match items.len() {
-                0 => Self::from_word(),
+                0 => dbg!(Self::from_word()),
                 1 | 2 => {
-                    #[derive(Debug, FromMeta)]
-                    struct ConfigParam {
-                        name: String,
-                        default: Option<Lit>,
+                    let mut errors = Error::accumulator();
+                    let mut name: Option<String> = None;
+                    let mut default: Option<Expr> = None;
+                    for item in items {
+                        match item {
+                            NestedMeta::Meta(kv) => {
+                                match path_to_string(kv.path()).as_str() {
+                                    "name" => {
+                                        if name.is_some() {
+                                            errors.push(Error::duplicate_field("name").with_span(item));
+                                        } else {
+                                            name = errors.handle(String::from_meta(&kv));
+                                        }
+                                    },
+                                    "default" => {
+                                        if default.is_some() {
+                                            errors.push(Error::duplicate_field("default").with_span(item));
+                                        } else {
+                                            match kv {
+                                                Meta::NameValue(ref value) => {
+                                                    default = Some(value.value.clone());
+                                                },
+                                                Meta::List(list) => errors.push(
+                                                    Error::unexpected_type("meta_list")
+                                                        .with_span(list)
+                                                ),
+                                                Meta::Path(path) => errors.push(
+                                                    Error::unexpected_type("path")
+                                                        .with_span(path)
+                                                ),
+                                            };
+                                        }
+                                    },
+                                    other => errors.push(
+                                        Error::unknown_field_with_alts(other, &["name", "default"])
+                                            .with_span(item)
+                                    ),
+                                }
+                                if name.is_some() {}
+                            }
+                            NestedMeta::Lit(lit) => {
+                                return Err(Error::unexpected_lit_type(&lit));
+                            }
+                        }
                     }
-                    let param = ConfigParam::from_list(items)?;
-                    Ok(Self::Named {
-                        name: param.name,
-                        default: param.default,
-                    })
+                    if let Some(name) = name {
+                        errors.finish()?;
+                        Ok(Self::Named {
+                            name,
+                            default,
+                        })
+                    } else {
+                        errors.push(Error::missing_field("name"));
+                        errors.finish()?;
+                        unreachable!()
+                    }
+
                 },
                 other => Err(Error::too_many_items(other)),
             }
@@ -142,9 +190,10 @@ mod meta {
 
     #[cfg(test)]
     mod test {
-        use darling::FromMeta;
+        use darling::{FromField, FromMeta};
         use syn::{Attribute, parse_quote};
 
+        use crate::bean::BeanField;
         use crate::bean::meta::{BeanMeta, ConfigMeta};
 
         #[test]
@@ -188,6 +237,18 @@ mod meta {
                 name: "test".to_string(),
                 default: Some(parse_quote!(12)),
             });
+        }
+
+        #[test]
+        fn test() {
+            let field = parse_quote!(
+                #[inject(config(name = "web.static.path", default = "static"))]
+                test: string
+            );
+
+            let bean_field = BeanField::from_field(&field).unwrap();
+
+            println!("{:?}", bean_field.config);
         }
 
         #[test]

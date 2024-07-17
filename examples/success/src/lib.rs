@@ -35,7 +35,7 @@ impl Default for S {
 #[derive(Bean)]
 #[bean(name = "aaa")]
 pub struct A {
-    #[inject(config = "aaa.v")]
+    #[inject(config(name = "aaa.v", default = true))]
     _v: bool,
     _s: S,
 }
