@@ -8,7 +8,7 @@ use darling::{
 };
 use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote, ToTokens};
-use syn::{Path, Type};
+use syn::{Expr, Path, Type};
 
 use crate::bean::meta::{BeanMeta, ConfigMeta};
 
@@ -343,7 +343,14 @@ impl ToTokens for FieldInitializer<'_> {
                 ConfigMeta::Trivial => quote! { ctx.get_config::<_>(#ident)? },
                 ConfigMeta::Named { ref name, ref default } => {
                     if let Some(ref value) = default {
-                        quote! { ctx.get_config_or::<_>(#name, #value.into())?}
+                        match value {
+                            Expr::Lit(ref lit) => {
+                                quote! { ctx.get_config_or::<_>(#name, #lit.into())? }
+                            },
+                            other => {
+                                quote! { ctx.get_config_or::<_>(#name, #other)? }
+                            },
+                        }
                     } else {
                         quote! { ctx.get_config::<_>(#name)?}
                     }

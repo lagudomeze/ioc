@@ -1,6 +1,7 @@
 use std::{
     path::PathBuf,
-    time::Duration
+    time::Duration,
+    collections::HashMap
 };
 use cfg_rs::*;
 use poem::{EndpointExt, listener::TcpListener, middleware::Tracing, Route, Server};
@@ -31,8 +32,8 @@ pub struct WebConfig {
     #[inject(config(name = "web.static.enable", default = false))]
     static_enable: bool,
     #[cfg(feature = "static-files")]
-    #[inject(config(name = "web.static.mappings", default = Vec::new()))]
-    static_mappings: Vec<StaticFilesMapping>,
+    #[inject(config(name = "web.static.mapping", default = Default::default()))]
+    static_mappings: HashMap<String, StaticFilesMapping>,
 }
 
 async fn run_server<T>(api: T, title: &str, version: &str) -> ioc_core::Result<()>
@@ -58,8 +59,8 @@ where
 
         use poem::endpoint::StaticFilesEndpoint;
 
-        for mapping  in config.static_mappings.iter() {
-            info!("add static {mapping:?}");
+        for (name, mapping)  in config.static_mappings.iter() {
+            info!("add static {mapping:?} for {name}");
             let mut endpoint = StaticFilesEndpoint::new(&mapping.dir);
             if mapping.listing {
                 endpoint = endpoint.show_files_listing()
