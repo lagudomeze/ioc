@@ -1,11 +1,22 @@
-use std::time::Duration;
-
+use std::{
+    path::PathBuf,
+    time::Duration
+};
+use cfg_rs::*;
 use poem::{EndpointExt, listener::TcpListener, middleware::Tracing, Route, Server};
 use poem_openapi::{OpenApi, OpenApiService};
 use tracing::info;
 
 use ioc_core as ioc;
 use ioc_core_derive::Bean;
+
+#[derive(FromConfig, Debug)]
+pub struct StaticFilesMapping {
+    path: String,
+    dir: PathBuf,
+    #[config(default = false)]
+    listing: bool,
+}
 
 #[derive(Bean)]
 #[bean(ioc_crate = ioc)]
@@ -16,10 +27,12 @@ pub struct WebConfig {
     shutdown_timeout: Duration,
     #[inject(config = "web.tracing")]
     tracing: bool,
-    #[inject(config(name = "web.static.dir", default = "."))]
-    static_dir: String,
-    #[inject(config(name = "web.static.path", default = "static"))]
-    static_path: String,
+    #[cfg(feature = "static-files")]
+    #[inject(config(name = "web.static.enable", default = false))]
+    static_enable: bool,
+    #[cfg(feature = "static-files")]
+    #[inject(config(name = "web.static.mappings", default = Vec::new()))]
+    static_mappings: Vec<StaticFilesMapping>,
 }
 
 async fn run_server<T>(api: T, title: &str, version: &str) -> ioc_core::Result<()>
@@ -35,11 +48,29 @@ where
 
     let spec = api_service.spec_endpoint_yaml();
 
-    let app = Route::new()
+    let mut route = Route::new()
         .nest("/", api_service)
-        .nest("/ui", ui)
-        .nest("/ui/spec/yaml", spec)
-        .with_if(config.tracing, Tracing::default());
+        .nest("/swagger-ui", ui)
+        .nest("/swagger-ui/spec.yaml", spec);
+
+    #[cfg(feature = "static-files")]
+    if config.static_enable {
+
+        use poem::endpoint::StaticFilesEndpoint;
+
+        for mapping  in config.static_mappings.iter() {
+            info!("add static {mapping:?}");
+            let mut endpoint = StaticFilesEndpoint::new(&mapping.dir);
+            if mapping.listing {
+                endpoint = endpoint.show_files_listing()
+                    .redirect_to_slash_directory();
+            }
+            route = route.nest(&mapping.path, endpoint);
+
+        }
+    }
+
+    let app = route.with_if(config.tracing, Tracing::default());
 
     let listener = TcpListener::bind(config.addr.as_str());
 

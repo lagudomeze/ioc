@@ -22,6 +22,7 @@ anyhow = { workspace = true }
 default = ["tracing_log"]
 tracing_log = ["tracing-subscriber", "tracing"]
 mvc = ["ioc_macro/mvc", "dep:ioc_mvc"]
+static-files = ["ioc_mvc/static-files"]
 
 [dev-dependencies]
 anyhow = { workspace = true }

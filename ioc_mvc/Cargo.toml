@@ -7,10 +7,11 @@ edition = "2021"
 ioc_mvc_derive = { workspace = true }
 ioc_core = { workspace = true }
 ioc_core_derive = { workspace = true }
-tracing = "0.1"
+tracing = { workspace = true }
+cfg-rs = { workspace = true }
 
 [dependencies.poem]
-version = "3"
+workspace = true
 
 [dependencies.poem-openapi]
 workspace = true
@@ -19,3 +20,6 @@ features = ["swagger-ui", "openapi-explorer"]
 [dependencies.tokio]
 version = "1"
 features = ["rt-multi-thread", "signal"]
+
+[features]
+static-files = ["poem/static-files"]
