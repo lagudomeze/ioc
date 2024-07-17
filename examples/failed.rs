@@ -9,9 +9,9 @@ struct A;
 #[derive(Bean)]
 #[bean(name = "bbb", ioc_crate = "ioc")]
 struct B {
-    #[inject(bean_with = crate::A)]
+    #[inject(bean = crate::A)]
     _a: &'static A,
-    #[inject(bean_with = crate::C)]
+    #[inject(bean = crate::C)]
     _c: &'static C,
 }
 
@@ -19,7 +19,7 @@ struct B {
 #[derive(Bean)]
 #[bean(name = "ccc", ioc_crate = "ioc")]
 struct C {
-    #[inject(bean_with = crate::A)]
+    #[inject(bean = crate::A)]
     _a: &'static A,
     #[inject(bean)]
     _b: &'static B,

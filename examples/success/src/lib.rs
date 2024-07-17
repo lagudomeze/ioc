@@ -15,11 +15,11 @@ mod tt {
 pub struct B {
     #[inject(bean)]
     pub _a: &'static A,
-    #[inject(bean_with = crate::A)]
+    #[inject(bean = crate::A)]
     _a0: &'static A,
     #[inject(bean)]
     _a1: &'static A,
-    #[inject(bean_with = AnotherBeanA)]
+    #[inject(bean = AnotherBeanA)]
     _a2: &'static A,
 }
 
@@ -37,7 +37,6 @@ impl Default for S {
 pub struct A {
     #[inject(config = "aaa.v")]
     _v: bool,
-    #[inject(default)]
     _s: S,
 }
 

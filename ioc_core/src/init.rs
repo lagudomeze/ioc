@@ -31,6 +31,8 @@ where
 pub trait InitContext {
     fn get_config<T: FromConfig>(&self, key: impl AsRef<str>) -> crate::Result<T>;
 
+    fn get_config_or<T: FromConfig>(&self, key: impl AsRef<str>, default: T) -> crate::Result<T>;
+
     fn get_predefined_config<T: FromConfigWithPrefix>(&self) -> crate::Result<T>;
 
     fn get_or_init<'a, B>(&mut self) -> crate::Result<&'a B::Bean>
@@ -58,6 +60,10 @@ pub struct InitCtx {
 impl InitContext for InitCtx {
     fn get_config<T: FromConfig>(&self, key: impl AsRef<str>) -> crate::Result<T> {
         Ok(self.config.source.get(key.as_ref())?)
+    }
+
+    fn get_config_or<T: FromConfig>(&self, key: impl AsRef<str>, default: T) -> crate::Result<T> {
+        Ok(self.config.source.get_or(key.as_ref(), default)?)
     }
 
     fn get_predefined_config<T: FromConfigWithPrefix>(&self) -> crate::Result<T> {

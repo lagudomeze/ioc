@@ -1,15 +1,16 @@
 use darling::{
     ast::Data,
+    ast::Style,
     Error,
     FromDeriveInput,
     FromField,
-    FromMeta,
-    Result,
+    Result
 };
-use darling::ast::Style;
 use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote, ToTokens};
 use syn::{Path, Type};
+
+use crate::bean::meta::{BeanMeta, ConfigMeta};
 
 pub(crate) fn resolve_ioc_crate(ioc_crate: &Option<Path>) -> Result<TokenStream> {
     if let Some(ioc_crate) = ioc_crate {
@@ -31,28 +32,216 @@ pub(crate) fn resolve_ioc_crate(ioc_crate: &Option<Path>) -> Result<TokenStream>
     }
 }
 
-#[derive(Debug, FromMeta)]
-#[darling(default, rename_all = "snake_case")]
-pub enum Inject {
-    Bean,
-    BeanWith(Path),
-    Config(String),
-    Default,
-}
+mod meta {
+    use darling::{
+        ast::NestedMeta,
+        Error,
+        FromMeta,
+        Result,
+    };
+    use syn::{Expr, Lit, Meta, Path};
 
-impl Default for Inject {
-    fn default() -> Self {
-        Inject::Default
+    #[derive(Debug, PartialEq)]
+    pub(crate) enum ConfigMeta {
+        Trivial,
+        Named {
+            name: String,
+            default: Option<Lit>,
+        },
+    }
+
+    impl FromMeta for ConfigMeta {
+        fn from_word() -> Result<Self> {
+            Ok(Self::Trivial)
+        }
+
+        fn from_list(items: &[NestedMeta]) -> Result<Self> {
+            match items.len() {
+                0 => Self::from_word(),
+                1 | 2 => {
+                    #[derive(Debug, FromMeta)]
+                    struct ConfigParam {
+                        name: String,
+                        default: Option<Lit>,
+                    }
+                    let param = ConfigParam::from_list(items)?;
+                    Ok(Self::Named {
+                        name: param.name,
+                        default: param.default,
+                    })
+                },
+                other => Err(Error::too_many_items(other)),
+            }
+        }
+
+        fn from_string(value: &str) -> Result<Self> {
+            Ok(Self::Named {
+                name: value.to_string(),
+                default: None,
+            })
+        }
+    }
+
+    #[derive(Debug, PartialEq)]
+    pub(crate) enum BeanMeta {
+        Trivial,
+        Spec {
+            spec: Path,
+        },
+    }
+
+    impl FromMeta for BeanMeta {
+        fn from_word() -> Result<Self> {
+            Ok(Self::Trivial)
+        }
+
+        fn from_list(items: &[NestedMeta]) -> Result<Self> {
+            match items.len() {
+                0 => Self::from_word(),
+                1 => {
+                    match items[0] {
+                        NestedMeta::Meta(Meta::Path(_)) => {
+                            Self::from_word()
+                        },
+                        NestedMeta::Meta(Meta::NameValue(ref value)) => {
+                            Self::from_expr(&value.value)
+                        },
+                        NestedMeta::Meta(Meta::List(_)) => {
+                            #[derive(Debug, FromMeta)]
+                            struct BeanParam {
+                                spec: Path,
+                            }
+                            let param = BeanParam::from_list(items)?;
+                            Ok(Self::Spec {
+                                spec: param.spec,
+                            })
+                        },
+                        NestedMeta::Lit(ref lit) => {
+                            Err(Error::unexpected_lit_type(lit))
+                        }
+                    }
+                },
+                other => Err(Error::too_many_items(other)),
+            }
+        }
+
+        fn from_expr(expr: &Expr) -> Result<Self> {
+            match *expr {
+                Expr::Group(ref group) => {
+                    Self::from_expr(&group.expr)
+                }
+                Expr::Path(ref path) => {
+                    Ok(Self::Spec {
+                        spec: path.path.clone(),
+                    })
+                }
+                _ => Err(Error::unexpected_expr_type(expr)),
+            }.map_err(|e| e.with_span(expr))
+        }
+    }
+
+    #[cfg(test)]
+    mod test {
+        use darling::FromMeta;
+        use syn::{Attribute, parse_quote};
+
+        use crate::bean::meta::{BeanMeta, ConfigMeta};
+
+        #[test]
+        fn test_config_meta_none() {
+            let config_meta: Option<ConfigMeta> = ConfigMeta::from_none();
+            assert_eq!(config_meta, None);
+        }
+
+        #[test]
+        fn test_config_meta_unnamed() {
+            let attr: Attribute = parse_quote!( #[config] );
+            let config_meta = ConfigMeta::from_meta(&attr.meta).unwrap();
+            assert_eq!(config_meta, ConfigMeta::Trivial);
+        }
+
+        #[test]
+        fn test_config_meta_named() {
+            let attr: Attribute = parse_quote!( #[config(name = "test")] );
+            let config_meta = ConfigMeta::from_meta(&attr.meta).unwrap();
+            assert_eq!(config_meta, ConfigMeta::Named {
+                name: "test".to_string(),
+                default: None,
+            });
+        }
+
+        #[test]
+        fn test_config_meta_named2() {
+            let attr: Attribute = parse_quote!( #[config = "test"] );
+            let config_meta = ConfigMeta::from_meta(&attr.meta).unwrap();
+            assert_eq!(config_meta, ConfigMeta::Named {
+                name: "test".to_string(),
+                default: None,
+            });
+        }
+
+        #[test]
+        fn test_config_meta_named_with_default_value() {
+            let attr: Attribute = parse_quote!( #[config(name = "test", default = 12)] );
+            let config_meta = ConfigMeta::from_meta(&attr.meta).unwrap();
+            assert_eq!(config_meta, ConfigMeta::Named {
+                name: "test".to_string(),
+                default: Some(parse_quote!(12)),
+            });
+        }
+
+        #[test]
+        fn test_config_meta_named_with_default_value_str() {
+            let attr: Attribute = parse_quote!( #[config(name = "web.static.path", default = "static")] );
+
+            let config_meta = ConfigMeta::from_meta(&attr.meta).unwrap();
+            assert_eq!(config_meta, ConfigMeta::Named {
+                name: "web.static.path".to_string(),
+                default: Some(parse_quote!("static")),
+            });
+        }
+
+        #[test]
+        fn test_bean_meta() {
+            assert_eq!(BeanMeta::from_none(), None);
+
+            let attr: Attribute = parse_quote!( #[bean] );
+            let meta = BeanMeta::from_meta(&attr.meta).unwrap();
+            assert_eq!(meta, BeanMeta::Trivial);
+
+            let attr: Attribute = parse_quote!( #[bean = aa::bb::Cc] );
+            let meta = BeanMeta::from_meta(&attr.meta).unwrap();
+            assert_eq!(meta, BeanMeta::Spec {
+                spec: parse_quote!(aa::bb::Cc),
+            });
+
+            let attr: Attribute = parse_quote!( #[bean(spec = aa::bb::Cc)] );
+            let meta = BeanMeta::from_meta(&attr.meta).unwrap();
+            assert_eq!(meta, BeanMeta::Spec {
+                spec: parse_quote!(aa::bb::Cc),
+            });
+        }
     }
 }
 
 #[derive(Debug, FromField)]
-#[darling(attributes(inject))]
+#[darling(attributes(inject), and_then = Self::validate)]
 pub struct BeanField {
     ty: Type,
     ident: Option<Ident>,
-    #[darling(flatten)]
-    inject: Inject,
+    #[darling(default)]
+    config: Option<ConfigMeta>,
+    #[darling(default)]
+    bean: Option<BeanMeta>,
+}
+
+impl BeanField {
+    fn validate(self) -> darling::Result<Self> {
+        if self.config.is_some() && self.bean.is_some() {
+            return Err(Error::custom("Cannot be both config and bean"));
+        }
+        Ok(self)
+    }
 }
 
 #[derive(Debug, FromDeriveInput)]
@@ -84,27 +273,37 @@ impl ToTokens for FieldInitializer<'_> {
         let BeanField {
             ref ty,
             ref ident,
-            ref inject,
+            ref config,
+            ref bean,
         } = self.0;
 
-        let initializer = match inject {
-            Inject::Bean => {
-                if let Type::Reference(type_ref)= ty {
-                    let ty = type_ref.elem.as_ref();
-                    quote! { ctx.get_or_init::<#ty>()? }
-                } else {
-                    quote! { ctx.get_or_init::<#ty>()? }
-                }
+        let initializer = if let Some(config) = config {
+            match config {
+                ConfigMeta::Trivial => quote! { ctx.get_config::<_>(#ident)? },
+                ConfigMeta::Named { ref name, ref default } => {
+                    if let Some(ref value) = default {
+                        quote! { ctx.get_config_or::<_>(#name, #value.into())?}
+                    } else {
+                        quote! { ctx.get_config::<_>(#name)?}
+                    }
+                },
             }
-            Inject::BeanWith(ty) => {
-                quote! { ctx.get_or_init::<#ty>()? }
+        } else if let Some(bean) = bean {
+            match bean {
+                BeanMeta::Trivial => {
+                    if let Type::Reference(type_ref) = ty {
+                        let ty = type_ref.elem.as_ref();
+                        quote! { ctx.get_or_init::<#ty>()? }
+                    } else {
+                        quote! { ctx.get_or_init::<#ty>()? }
+                    }
+                },
+                BeanMeta::Spec { spec } => {
+                    quote! { ctx.get_or_init::<#spec>()? }
+                },
             }
-            Inject::Config(key) => {
-                quote! { ctx.get_config::<_>(#key)?}
-            }
-            Inject::Default => {
-                quote! { Default::default() }
-            }
+        } else {
+            quote! { Default::default() }
         };
 
         if let Some(field_name) = ident {

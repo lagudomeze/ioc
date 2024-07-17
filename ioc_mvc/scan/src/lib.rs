@@ -1,6 +1,6 @@
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::{ItemImpl, parse_quote, Path};
+use syn::{ItemImpl, Path};
 
 use ioc_scan::{Module, Result, Scanner, Transport};
 

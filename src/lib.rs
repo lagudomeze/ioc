@@ -75,7 +75,7 @@
 //! pub struct MyBean {
 //!     #[inject(bean)]
 //!     a: &'static A,
-//!     #[inject(bean_with = AnotherBeanA)]
+//!     #[inject(bean= AnotherBeanA)]
 //!     another_a: &'static A,
 //!     #[inject(config = "config.key")]
 //!     config_value: String,

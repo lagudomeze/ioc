@@ -16,6 +16,10 @@ pub struct WebConfig {
     shutdown_timeout: Duration,
     #[inject(config = "web.tracing")]
     tracing: bool,
+    #[inject(config(name = "web.static.dir", default = "."))]
+    static_dir: String,
+    #[inject(config(name = "web.static.path", default = "static"))]
+    static_path: String,
 }
 
 async fn run_server<T>(api: T, title: &str, version: &str) -> ioc_core::Result<()>
