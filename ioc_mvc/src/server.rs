@@ -3,8 +3,10 @@ use std::{
     time::Duration,
     collections::HashMap
 };
+use std::future::Future;
 use cfg_rs::*;
-use poem::{EndpointExt, listener::TcpListener, middleware::Tracing, Route, Server};
+use poem::{Endpoint, EndpointExt, listener::TcpListener, Middleware, middleware::Tracing, Request, Response, Route, Server};
+use poem::middleware::TracingEndpoint;
 use poem_openapi::{OpenApi, OpenApiService};
 use tracing::info;
 
@@ -34,6 +36,35 @@ pub struct WebConfig {
     #[cfg(feature = "static-files")]
     #[inject(config(name = "web.static.mapping", default = Default::default()))]
     static_mappings: HashMap<String, StaticFilesMapping>,
+}
+
+#[derive(Default)]
+pub struct CustomTracing(Tracing);
+
+impl<E: Endpoint> Middleware<E> for CustomTracing {
+    type Output = CustomTracingEndpoint<E>;
+
+    fn transform(&self, ep: E) -> Self::Output {
+        CustomTracingEndpoint { inner: self.0.transform(ep) }
+    }
+}
+
+pub struct CustomTracingEndpoint<E> {
+    inner: TracingEndpoint<E>,
+}
+
+impl<E: Endpoint> Endpoint for CustomTracingEndpoint<E> {
+    type Output = Response;
+
+    fn call(&self, req: Request) -> impl Future<Output=poem::Result<Self::Output>> + Send {
+        async {
+            let result = self.inner.call(req).await;
+            if let Err(ref e) = result  {
+                tracing::warn!("{e:?}");
+            }
+            result
+        }
+    }
 }
 
 async fn run_server<T>(api: T, title: &str, version: &str) -> ioc_core::Result<()>
@@ -71,7 +102,7 @@ where
         }
     }
 
-    let app = route.with_if(config.tracing, Tracing::default());
+    let app = route.with_if(config.tracing, CustomTracing::default());
 
     let listener = TcpListener::bind(config.addr.as_str());
 
