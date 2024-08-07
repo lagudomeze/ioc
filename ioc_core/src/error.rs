@@ -18,12 +18,6 @@ pub enum IocError {
     Other(#[from] anyhow::Error),
 }
 
-impl<T> From<T> for IocError where T:Into<anyhow::Error> {
-    fn from(value: T) -> Self {
-        Self::Other(value.into())
-    }
-}
-
 impl From<cfg_rs::ConfigError> for IocError {
     fn from(value: cfg_rs::ConfigError) -> Self {
         Self::ConfigError(format!("{value:?}"))
