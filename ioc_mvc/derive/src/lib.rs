@@ -29,6 +29,7 @@ struct ItemImplPatch {
     attrs_for_impl: Vec<Attribute>,
     methods: Vec<ImplItemFn>,
     methods_for_traits: Vec<TraitItemFn>,
+    open_api_attrs: Vec<Attribute>,
 }
 
 impl VisitMut for ItemImplPatch {
@@ -37,17 +38,24 @@ impl VisitMut for ItemImplPatch {
             // get the raw type and api trait type
             self.api_trait_type = Some(Self::new_api_trait(&i.self_ty));
 
+            let open_api_attrs = &mut self.open_api_attrs;
+
             // extract all no mvc attributes to self.attrs remove Openapi attributes
             i.attrs.retain(|attr| {
                 if attr.path().is_ident("mvc") {
                     false
                 } else if attr.path().is_ident("OpenApi") {
+                    open_api_attrs.push(attr.clone());
                     false
                 } else {
                     self.attrs_for_impl.push(attr.clone());
                     true
                 }
             });
+
+            if open_api_attrs.is_empty() {
+                self.attrs_for_impl.push(parse_quote!(#[ioc::OpenApi]));
+            }
 
             i.items.retain(|item| {
                 if let ImplItem::Fn(item_fn) = item {
@@ -78,6 +86,7 @@ impl ItemImplPatch {
             attrs_for_impl: vec![],
             methods: vec![],
             methods_for_traits: vec![],
+            open_api_attrs: vec![],
         }
     }
 
@@ -125,6 +134,7 @@ impl ItemImplPatch {
             methods,
             methods_for_traits,
             span,
+            open_api_attrs,
         } = self;
         if let Some(ApiTraitInfo { raw_type, api_trait }) = api_trait_type {
             quote! {
@@ -132,7 +142,7 @@ impl ItemImplPatch {
                     #(#methods_for_traits)*
                 }
 
-                #[ioc::OpenApi]
+                #(#open_api_attrs)*
                 #(#attrs_for_impl)*
                 impl #api_trait for &'static #raw_type {
                     #(#methods)*
