@@ -34,6 +34,7 @@ impl Scanner for Beans {
                 attr.parse_nested_meta(|meta| {
                     if meta.path.is_ident("Bean") {
                         let find_type = module_info.build_path(&i.ident);
+                        eprintln!("type: {}", quote!(#find_type).to_string());
                         self.types.push(find_type);
                     }
                     Ok(())

@@ -1,30 +1,19 @@
 use std::{
     env::current_dir,
-    fmt::{
-        self,
-        Display,
-        Formatter,
-    },
+    fmt::{self, Display, Formatter},
     fs::read_to_string,
     mem::swap,
-    path::{
-        Path as FsPath,
-        PathBuf,
-    },
+    path::{Path as FsPath, PathBuf},
 };
 
 use quote::ToTokens;
-use syn::{Ident, ItemImpl, ItemMod, ItemStruct, parse_quote, Path, PathSegment, visit::{
-    Visit,
-    visit_item_impl,
-    visit_item_mod,
-    visit_item_struct,
-}};
-
-use crate::{
-    Error,
-    Result,
+use syn::{
+    parse_quote,
+    visit::{visit_item_impl, visit_item_mod, visit_item_struct, Visit},
+    Ident, ItemImpl, ItemMod, ItemStruct, Meta, Path, PathSegment,
 };
+
+use crate::{Error, Result};
 
 #[derive(Debug)]
 pub struct Module {
@@ -88,10 +77,11 @@ impl Module {
 
         let module_path = {
             let mut module_path = self.module_path.clone();
-            module_path.segments.push(PathSegment::from(segment.clone()));
+            module_path
+                .segments
+                .push(PathSegment::from(segment.clone()));
             module_path
         };
-
 
         Ok(Self {
             root: self.root.clone(),
@@ -125,10 +115,7 @@ pub(crate) struct ScanVisit<T> {
 
 impl<T> ScanVisit<T> {
     pub(crate) fn new(module: Module, scanner: T) -> Self {
-        Self {
-            module,
-            scanner,
-        }
+        Self { module, scanner }
     }
 }
 
@@ -160,13 +147,24 @@ where
                 .sub_module(&i.ident)
                 .expect("sub module not found!");
 
-            let string = read_to_string(&module.file()).expect("read file failed!");
+            let file = module.file();
+            eprintln!("mod file: {:?}", file);
+            let string = read_to_string(&file).expect("read file failed!");
             let file = syn::parse_file(&string).expect("parse file failed!");
 
             swap(&mut self.module, &mut module);
             self.visit_file(&file);
             swap(&mut self.module, &mut module);
         } else {
+            for attr in &i.attrs {
+                let cfg_test: Meta = parse_quote!(cfg(test));
+                let meta = &attr.meta;
+                if meta.eq(&cfg_test) {
+                    eprintln!("mod with test slip {}", i.ident);
+                    return;
+                }
+            }
+
             let segment = PathSegment::from(i.ident.clone());
 
             self.module.module_path.segments.push(segment);
