@@ -10,8 +10,8 @@ pub enum IocError {
     ConfigError(String),
     #[error("required {type_name} is not init!")]
     DependNotReady { type_name: &'static str },
-    #[error("circular dependency")]
-    CircularDependency,
+    #[error("circular dependency: \n{0}")]
+    CircularDependency(String),
     #[error("io: `{0}`")]
     Io(#[from] io::Error),
     #[error(transparent)]

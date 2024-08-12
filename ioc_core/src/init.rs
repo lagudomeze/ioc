@@ -86,10 +86,9 @@ impl InitContext for InitCtx {
         // Use the cache to detect potential circular dependencies by checking if the bean
         // is currently in the process of being initialized.
         // Check if the bean is currently being initialized and return an error if so.
-        for pending_spec in self.pending_chain.iter() {
+        for (i, pending_spec) in self.pending_chain.iter().enumerate() {
             if pending_spec.eq(&id) {
-                //todo make it more readable
-                return Err(IocError::CircularDependency);
+                return Err(IocError::CircularDependency(generate_cycle_visualization(&self.pending_chain, i)));
             }
         }
         self.pending_chain.push_back(info);
@@ -114,6 +113,112 @@ impl InitContext for InitCtx {
         }
 
         result
+    }
+}
+
+fn generate_cycle_visualization(bean_infos: &VecDeque<BeanInfo>, beans_in_cycle: usize) -> String {
+    let single_bean = bean_infos.len() == 1;
+    let mut message = String::new();
+
+    for (i, bean) in bean_infos.iter().enumerate() {
+        if i == beans_in_cycle {
+            if single_bean {
+                message.push_str("┌──->──┐\n");
+            } else {
+                message.push_str("┌─────┐\n");
+            }
+            message.push_str(&format!("{}   {}\n", " ", bean));
+        } else if i > 0 {
+            let left_side = if i < beans_in_cycle { " " } else { "↑" };
+            message.push_str(&format!("{}     ↓\n", left_side));
+            message.push_str(&format!("{}   {}\n", " ", bean));
+        } else {
+            let left_side = if i < beans_in_cycle { " " } else { "|" };
+            message.push_str(&format!("{}   {}\n", left_side, bean));
+        }
+    }
+
+    if single_bean {
+        message.push_str("└──<-──┘\n");
+    } else {
+        message.push_str("└─────┘\n");
+    }
+
+    message
+}
+
+#[cfg(test)]
+mod test {
+    use std::collections::VecDeque;
+    use std::sync::OnceLock;
+    use crate::{BeanSpec, InitContext};
+    use crate::init::generate_cycle_visualization;
+
+    struct A;
+    struct B;
+    struct C;
+    struct D;
+
+    impl BeanSpec for A {
+        type Bean = Self;
+
+        fn build(_ctx: &mut impl InitContext) -> crate::Result<Self::Bean> {
+            unimplemented!()
+        }
+
+        fn holder<'a>() -> &'a OnceLock<Self::Bean> {
+            unimplemented!()
+        }
+    }
+
+    impl BeanSpec for B {
+        type Bean = Self;
+
+        fn build(_ctx: &mut impl InitContext) -> crate::Result<Self::Bean> {
+            unimplemented!()
+        }
+
+        fn holder<'a>() -> &'a OnceLock<Self::Bean> {
+            unimplemented!()
+        }
+    }
+
+    impl BeanSpec for C {
+        type Bean = Self;
+
+        fn build(_ctx: &mut impl InitContext) -> crate::Result<Self::Bean> {
+            unimplemented!()
+        }
+
+        fn holder<'a>() -> &'a OnceLock<Self::Bean> {
+            unimplemented!()
+        }
+    }
+
+    impl BeanSpec for D {
+        type Bean = Self;
+
+        fn build(_ctx: &mut impl InitContext) -> crate::Result<Self::Bean> {
+            unimplemented!()
+        }
+
+        fn holder<'a>() -> &'a OnceLock<Self::Bean> {
+            unimplemented!()
+        }
+    }
+
+    #[test]
+    fn test() {
+        // 示例用法
+        let beans = VecDeque::from(vec![
+            A::bean_info(),
+            B::bean_info(),
+            C::bean_info(),
+            D::bean_info(),
+        ]);
+
+        let visualization = generate_cycle_visualization(&beans, 2);
+        println!("{}", visualization);
     }
 }
 

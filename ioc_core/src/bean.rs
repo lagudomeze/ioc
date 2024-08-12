@@ -392,9 +392,10 @@ mod tests {
             assert_eq!("this is B", &b.1);
             assert_eq!("this is C", &c.2);
 
-            assert_matches!(ctx.get_or_init::<E>(), Err(IocError::CircularDependency));
-            assert_matches!(ctx.get_or_init::<F>(), Err(IocError::CircularDependency));
-            assert_matches!(ctx.get_or_init::<D>(), Err(IocError::CircularDependency));
+            let _a = "".to_string();
+            assert_matches!(ctx.get_or_init::<E>(), Err(IocError::CircularDependency(_a)));
+            assert_matches!(ctx.get_or_init::<F>(), Err(IocError::CircularDependency(_a)));
+            assert_matches!(ctx.get_or_init::<D>(), Err(IocError::CircularDependency(_a)));
 
             Ok(())
         }
