@@ -1,6 +1,6 @@
 // examples/main
 
-use ioc::{Bean, export, bean, BeanSpec, InitContext};
+use ioc::{bean, export, Bean, BeanSpec, InitContext};
 
 mod test;
 
@@ -46,8 +46,7 @@ struct AnotherBeanA;
 impl BeanSpec for AnotherBeanA {
     type Bean = A;
 
-    fn build(ctx: &mut impl InitContext) -> ioc::Result<Self::Bean>
-    {
+    fn build(ctx: &mut impl InitContext) -> ioc::Result<Self::Bean> {
         Ok(A {
             _v: ctx.get_config::<_>("aaa.t")?,
             _s: S("hihi"),

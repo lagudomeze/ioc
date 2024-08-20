@@ -1,4 +1,4 @@
-use ioc::{BeanSpec, run};
+use ioc::{run, BeanSpec};
 use success::{A, B};
 
 fn main() -> anyhow::Result<()> {

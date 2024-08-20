@@ -1,0 +1,17 @@
+[package]
+name = "ioc_core"
+version = "0.0.0"
+edition = "2021"
+
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+log = { workspace = true }
+thiserror = { workspace = true }
+cfg-rs = { workspace = true }
+anyhow = { workspace = true }
+
+[dev-dependencies]
+prettyplease = { workspace = true }
+darling = { workspace = true }

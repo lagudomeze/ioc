@@ -1,6 +1,4 @@
 use ioc::Bean;
 
 #[derive(Bean)]
-pub struct TestBean {
-
-}
+pub struct TestBean {}

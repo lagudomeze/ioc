@@ -8,11 +8,11 @@ edition = "2021"
 anyhow = "1.0.86"
 
 [dependencies.ioc]
-path = "../.."
+path = "../../libs/ioc"
 features = ["tracing_log"]
 
-[build-dependencies.ioc_scan]
-path = "../../ioc_scan"
+[build-dependencies.ioc_core_scan]
+path = "../../crates/core_scan"
 
 [dependencies.poem-openapi]
 workspace = true
