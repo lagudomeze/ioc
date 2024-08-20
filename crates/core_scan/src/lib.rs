@@ -42,7 +42,7 @@ mod tests {
 
     #[test]
     fn it_works() -> Result<()> {
-        let path = PathBuf::from("../../examples/success/src/lib.rs");
+        let path = PathBuf::from("../success/src/lib.rs");
         let code = export(Beans::default(), path)?;
 
         let func = parse_quote!( #code );

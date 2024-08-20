@@ -46,7 +46,7 @@ impl BeanSpec for AnotherBeanA {
     }
 }
 
-export!(root = "examples/hello.rs");
+export!();
 
 fn main() -> anyhow::Result<()> {
     let _ = run!(

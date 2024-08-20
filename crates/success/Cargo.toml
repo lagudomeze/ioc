@@ -12,7 +12,7 @@ path = "../../libs/ioc"
 features = ["tracing_log"]
 
 [build-dependencies.ioc_core_scan]
-path = "../../crates/core_scan"
+path = "../core_scan"
 
 [dependencies.poem-openapi]
 workspace = true
