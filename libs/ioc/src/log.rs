@@ -89,19 +89,25 @@ mod tracing_log {
         }
     }
 
+    impl Default for LogOptions {
+        fn default() -> Self {
+            Self::new()
+        }
+    }
+
     pub struct LogPatcher(Handle<EnvFilter, Formatter>);
 
     #[bean]
     impl BeanSpec for LogPatcher {
         type Bean = Self;
 
-        fn build(_: &mut impl InitContext) -> crate::Result<Self::Bean> {
+        fn build(_: &mut impl InitContext) -> Result<Self::Bean> {
             panic!("do not run here!")
         }
     }
 
     impl LogPatcher {
-        pub fn reload<'a, I>(&self, value: I) -> Result<()>
+        pub fn reload<I>(&self, value: I) -> Result<()>
         where
             I: IntoIterator<Item: AsRef<str>>,
         {
