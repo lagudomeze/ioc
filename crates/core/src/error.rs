@@ -14,6 +14,8 @@ pub enum IocError {
     CircularDependency(String),
     #[error("io: `{0}`")]
     Io(#[from] io::Error),
+    #[error("set logger error: `{0}`")]
+    SetLoggerError(#[from] log::SetLoggerError),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
 }

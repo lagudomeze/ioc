@@ -14,7 +14,7 @@ compile_error!(
 
 #[cfg(feature = "env_logger")]
 mod env_logger {
-    use env_logger::{builder, Env};
+    use env_logger::{Builder, Env};
 
     pub struct LogOptions<'a> {
         env: Env<'a>,
@@ -35,7 +35,7 @@ mod env_logger {
         }
 
         pub fn init(self) -> crate::Result<()> {
-            builder().env(self.env).try_init()?;
+            Builder::from_env(self.env).try_init()?;
             Ok(())
         }
     }
