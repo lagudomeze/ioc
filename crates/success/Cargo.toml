@@ -1,0 +1,13 @@
+[package]
+name = "success"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+
+[dependencies]
+anyhow = "1.0.86"
+
+[dependencies.ioc]
+path = "../../libs/ioc"
+features = ["tracing_log"]
+default-features = false

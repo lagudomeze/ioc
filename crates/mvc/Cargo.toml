@@ -1,0 +1,26 @@
+[package]
+name = "ioc_mvc"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+
+[dependencies]
+ioc_mvc_macro = { workspace = true }
+ioc_core = { workspace = true }
+ioc_core_macro = { workspace = true }
+tracing = { workspace = true }
+cfg-rs = { workspace = true }
+
+[dependencies.poem]
+workspace = true
+
+[dependencies.poem-openapi]
+workspace = true
+features = ["swagger-ui", "openapi-explorer"]
+
+[dependencies.tokio]
+version = "1"
+features = ["rt-multi-thread", "signal"]
+
+[features]
+static-files = ["poem/static-files"]

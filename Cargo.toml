@@ -1,44 +1,17 @@
-[package]
-name = "ioc"
-version = "0.1.0"
-edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[dependencies]
-cfg-rs = { workspace = true }
-env_logger = { workspace = true, optional = true }
-tracing = { workspace = true, optional = true }
-tracing-subscriber = { workspace = true, optional = true, features = ["env-filter"] }
-ioc_core = { workspace = true }
-ioc_core_derive = { workspace = true }
-ioc_mvc = { workspace = true, optional = true }
-ioc_macro = { workspace = true }
-log = { workspace = true }
-thiserror = { workspace = true }
-anyhow = { workspace = true }
-
-[features]
-default = ["tracing_log"]
-tracing_log = ["tracing-subscriber", "tracing"]
-mvc = ["ioc_macro/mvc", "dep:ioc_mvc"]
-static-files = ["ioc_mvc/static-files"]
-
-[dev-dependencies]
-anyhow = { workspace = true }
-poem-openapi = { workspace = true }
-
 [workspace]
 members = [
-    "examples/success",
-    "ioc_core",
-    "ioc_core/derive",
-    "ioc_mvc",
-    "ioc_mvc/derive",
-    "ioc_mvc/scan",
-    "ioc_scan",
-    "ioc_macro"
+    "crates/*",
+    "libs/*"
 ]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.1"
+rust-version = "1.80"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+authors = ["ybiao"]
+repository = "https://github.com/lagudomeze/ioc"
 
 [workspace.dependencies]
 cfg-rs = { version = "0.4", features = ["full"] }
@@ -58,13 +31,14 @@ poem-openapi = { version = "5" }
 prettyplease = { version = "0.2" }
 darling = { version = "0.20" }
 proc-macro-crate = { version = "3" }
-ioc_scan = { path = "./ioc_scan" }
-ioc_core = { path = "./ioc_core" }
-ioc_core_derive = { path = "ioc_core/derive" }
-ioc_mvc = { path = "ioc_mvc" }
-ioc_mvc_derive = { path = "ioc_mvc/derive" }
-ioc_mvc_scan = { path = "ioc_mvc/scan" }
-ioc_macro = { path = "ioc_macro", default-features = false  }
+ioc = { path = "libs/ioc" }
+ioc_macro = { path = "libs/ioc_macro", default-features = false }
+ioc_core = { path = "crates/core" }
+ioc_core_macro = { path = "crates/core_macro" }
+ioc_core_scan = { path = "crates/core_scan" }
+ioc_mvc = { path = "crates/mvc" }
+ioc_mvc_macro = { path = "crates/mvc_macro" }
+ioc_mvc_scan = { path = "crates/mvc_scan" }
 
 [workspace.dependencies.syn]
 version = "2"

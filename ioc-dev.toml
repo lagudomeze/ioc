@@ -1,3 +1,8 @@
 [aaa]
 v = true
 t = false
+
+[web]
+addr = "localhost:8080"
+graceful_shutdown_timeout = "1s"
+tracing = true

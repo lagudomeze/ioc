@@ -1,0 +1,26 @@
+[package]
+name = "ioc_core_macro"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+proc-macro2 = { workspace = true }
+quote = { workspace = true }
+serde = { workspace = true, features = [
+    "derive",
+] }
+syn = { workspace = true }
+toml = { workspace = true }
+thiserror = { workspace = true }
+ioc_core_scan = { workspace = true }
+darling = { workspace = true }
+proc-macro-crate = { workspace = true }
+
+[lib]
+proc-macro = true
+
+[dev-dependencies]
+prettyplease = { workspace = true }
