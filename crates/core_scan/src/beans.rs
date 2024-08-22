@@ -26,11 +26,11 @@ impl Beans {
 impl Scanner for Beans {
     fn item_struct(&mut self, module_info: &Module, i: &ItemStruct) -> crate::Result<()> {
         for attr in i.attrs.iter() {
-            if attr.path().is_ident("mvc_macro") {
+            if attr.path().is_ident("derive") {
                 attr.parse_nested_meta(|meta| {
                     if meta.path.is_ident("Bean") {
                         let find_type = module_info.build_path(&i.ident);
-                        eprintln!("type: {}", quote!(#find_type).to_string());
+                        eprintln!("type: {}", quote!(#find_type));
                         self.types.push(find_type);
                     }
                     Ok(())

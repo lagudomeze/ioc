@@ -5,7 +5,6 @@ use poem::{
     Endpoint, EndpointExt, Middleware, Request, Response, Route, Server,
 };
 use poem_openapi::{OpenApi, OpenApiService};
-use std::future::Future;
 use std::{collections::HashMap, path::PathBuf, time::Duration};
 use tracing::info;
 
@@ -57,14 +56,12 @@ pub struct CustomTracingEndpoint<E> {
 impl<E: Endpoint> Endpoint for CustomTracingEndpoint<E> {
     type Output = Response;
 
-    fn call(&self, req: Request) -> impl Future<Output = poem::Result<Self::Output>> + Send {
-        async {
-            let result = self.inner.call(req).await;
-            if let Err(ref e) = result {
-                tracing::warn!("{e:?}");
-            }
-            result
+    async fn call(&self, req: Request) -> poem::Result<Self::Output> {
+        let result = self.inner.call(req).await;
+        if let Err(ref e) = result {
+            tracing::warn!("{e:?}");
         }
+        result
     }
 }
 

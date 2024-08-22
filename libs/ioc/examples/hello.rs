@@ -1,6 +1,6 @@
 // examples/hello.rs
 
-use ioc::{Bean, bean, BeanSpec, export, InitContext, run};
+use ioc::{bean, export, run, Bean, BeanSpec, InitContext};
 
 #[derive(Bean)]
 #[bean(ioc_crate = ioc)]

@@ -24,6 +24,12 @@ pub struct AppConfigLoader<'a> {
     profile: &'a str,
 }
 
+impl<'a> Default for AppConfigLoader<'a> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<'a> AppConfigLoader<'a> {
     pub fn new() -> Self {
         Self {

@@ -149,7 +149,7 @@ where
 
             let file = module.file();
             eprintln!("mod file: {:?}", file);
-            let string = read_to_string(&file).expect("read file failed!");
+            let string = read_to_string(file).expect("read file failed!");
             let file = syn::parse_file(&string).expect("parse file failed!");
 
             swap(&mut self.module, &mut module);
@@ -168,7 +168,7 @@ where
             let segment = PathSegment::from(i.ident.clone());
 
             self.module.module_path.segments.push(segment);
-            visit_item_mod(self, &i);
+            visit_item_mod(self, i);
 
             let pair = self
                 .module
@@ -189,7 +189,7 @@ where
     }
 }
 
-impl<'ast, T: Scanner> ScanVisit<T> {
+impl<T: Scanner> ScanVisit<T> {
     pub(crate) fn scan(mut self) -> Result<T> {
         let string = read_to_string(&self.module.file)?;
         let file = syn::parse_file(&string)?;

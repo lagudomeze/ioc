@@ -1,6 +1,6 @@
 // examples/hello.rs
 
-use ioc::{run, Bean, export};
+use ioc::{export, run, Bean};
 
 #[derive(Bean)]
 #[bean(name = "ccc", ioc_crate = "ioc")]
@@ -26,7 +26,7 @@ struct B {
     #[inject(bean = crate::C)]
     _c: &'static C,
 }
-export!(root = "examples/failed.rs");
+export!();
 
 fn main() -> anyhow::Result<()> {
     run!();

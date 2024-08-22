@@ -15,18 +15,18 @@ mod init;
 #[proc_macro_derive(Bean, attributes(inject, bean))]
 pub fn bean_definition(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
-    return match BeanSpecStruct::from_derive_input(&input) {
+    match BeanSpecStruct::from_derive_input(&input) {
         Ok(bean_struct) => bean_struct.into_token_stream().into(),
         Err(err) => err.write_errors().into(),
-    };
+    }
 }
 
 #[proc_macro_attribute]
 pub fn bean(attr: TokenStream, item: TokenStream) -> TokenStream {
     let impl_block = parse_macro_input!(item as ItemImpl);
 
-    return match custom::expand(TokenStream2::from(attr), impl_block) {
+    match custom::expand(TokenStream2::from(attr), impl_block) {
         Ok(tt) => tt.into(),
         Err(err) => err.write_errors().into(),
-    };
+    }
 }

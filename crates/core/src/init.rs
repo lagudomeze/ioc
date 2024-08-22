@@ -94,14 +94,17 @@ impl InitContext for InitCtx {
         // Check if the bean is currently being initialized and return an error if so.
         for (i, pending_spec) in self.pending_chain.iter().enumerate() {
             if pending_spec.eq(&id) {
-                return Err(IocError::CircularDependency(generate_cycle_visualization(&self.pending_chain, i)));
+                return Err(IocError::CircularDependency(generate_cycle_visualization(
+                    &self.pending_chain,
+                    i,
+                )));
             }
         }
         self.pending_chain.push_back(info);
         debug!("bean {:?} is pending! ", info);
 
         // The holder's `get_or_try_init` method will attempt to build the bean if it's not already initialized.
-        let result = B::holder().get_or_try_init(|| B::build(self));
+        let result = B::build(self).map(|bean| B::holder().get_or_init(|| bean));
 
         let ready_bean = self
             .pending_chain
@@ -155,10 +158,10 @@ fn generate_cycle_visualization(bean_infos: &VecDeque<BeanInfo>, beans_in_cycle:
 
 #[cfg(test)]
 mod test {
+    use crate::init::generate_cycle_visualization;
+    use crate::{BeanSpec, InitContext};
     use std::collections::VecDeque;
     use std::sync::OnceLock;
-    use crate::{BeanSpec, InitContext};
-    use crate::init::generate_cycle_visualization;
 
     struct A;
     struct B;

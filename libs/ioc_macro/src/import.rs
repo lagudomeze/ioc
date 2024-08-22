@@ -43,9 +43,7 @@ pub(crate) fn generate(input: TokenStream) -> darling::Result<TokenStream> {
         #[cfg(feature = "mvc")]
         let transport = transport.join(Mvcs::default());
 
-        transport
-            .import(&crates)
-            .map_err(|err| Error::custom(err))?
+        transport.import(&crates).map_err(Error::custom)?
     };
 
     Ok(expanded.into())

@@ -1,8 +1,8 @@
 [package]
 name = "success"
-version = "0.1.0"
-edition = "2021"
-
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
 
 [dependencies]
 anyhow = "1.0.86"
@@ -10,9 +10,4 @@ anyhow = "1.0.86"
 [dependencies.ioc]
 path = "../../libs/ioc"
 features = ["tracing_log"]
-
-[build-dependencies.ioc_core_scan]
-path = "../core_scan"
-
-[dependencies.poem-openapi]
-workspace = true
+default-features = false

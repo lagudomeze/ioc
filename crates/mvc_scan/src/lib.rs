@@ -59,7 +59,7 @@ mod tests {
 
     #[test]
     fn it_works() -> Result<()> {
-        let file = PathBuf::from("../../examples/success/src/main.rs");
+        let file = PathBuf::from("../success/src/main.rs");
         let code = export(Mvcs::default(), file)?;
 
         let func = parse_quote!( #code );

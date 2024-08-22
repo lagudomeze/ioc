@@ -1,5 +1,3 @@
-#![feature(once_cell_try, assert_matches)]
-
 pub use bean::{BeanId, BeanInfo, BeanSpec};
 pub use config::{AppConfigLoader, Config};
 pub use error::{IocError, Result};

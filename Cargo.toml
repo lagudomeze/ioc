@@ -1,12 +1,12 @@
 [workspace]
 members = [
-    "crates/success",
     "crates/*",
     "libs/*"
 ]
 resolver = "2"
 
 [workspace.package]
+version = "0.1.1"
 rust-version = "1.80"
 edition = "2021"
 license = "MIT OR Apache-2.0"

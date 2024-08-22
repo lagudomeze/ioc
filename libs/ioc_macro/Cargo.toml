@@ -1,17 +1,18 @@
 [package]
 name = "ioc_macro"
-version = "0.1.0"
-edition = "2021"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
 
 [dependencies]
-proc-macro2 = { workspace = true, features = ["span-locations"] }
+proc-macro2 = { workspace = true, features = ["span-locations", "proc-macro", "nightly"] }
 quote = { workspace = true }
 syn = { workspace = true }
 thiserror = { workspace = true }
 darling = { workspace = true }
 ioc_core_scan = { workspace = true }
 ioc_mvc_scan = { workspace = true, optional = true }
-log = "0.4.21"
+log = { workspace = true }
 
 [lib]
 proc-macro = true

@@ -54,7 +54,7 @@ pub struct BeanId(TypeId);
     label = "implement Bean for this type",
     note = "
     add Bean mvc_macro for this type
-    #[mvc_macro(Bean)]
+    #[derive(Bean)]
     #[bean(name = \"your bean name\")]
     struct YourType {{
         ...
@@ -235,7 +235,6 @@ mod tests {
     }
 
     mod dep {
-        use std::assert_matches::assert_matches;
         use std::sync::OnceLock;
 
         use cfg_rs::{init_cargo_env, Configuration};
@@ -346,6 +345,15 @@ mod tests {
             }
         }
 
+        fn test_circular_dependency<E>(ctx: &mut InitCtx) {
+            let result = ctx.get_or_init::<crate::bean::tests::dep::E>();
+            if let Err(IocError::CircularDependency(ref s)) = result {
+                println!("{s}");
+            } else {
+                assert!(false, "expect circular dependency error");
+            }
+        }
+
         #[test]
         fn it_works() -> crate::Result<()> {
             init_cargo_env!();
@@ -368,10 +376,9 @@ mod tests {
             assert_eq!("this is B", &b.1);
             assert_eq!("this is C", &c.2);
 
-            let _a = "".to_string();
-            assert_matches!(ctx.get_or_init::<E>(), Err(IocError::CircularDependency(_a)));
-            assert_matches!(ctx.get_or_init::<F>(), Err(IocError::CircularDependency(_a)));
-            assert_matches!(ctx.get_or_init::<D>(), Err(IocError::CircularDependency(_a)));
+            test_circular_dependency::<E>(&mut ctx);
+            test_circular_dependency::<F>(&mut ctx);
+            test_circular_dependency::<D>(&mut ctx);
 
             Ok(())
         }

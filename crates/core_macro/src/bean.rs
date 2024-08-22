@@ -7,7 +7,7 @@ use crate::bean::meta::{BeanMeta, ConfigMeta};
 
 pub(crate) fn resolve_ioc_crate(ioc_crate: &Option<Path>) -> Result<TokenStream> {
     if let Some(ioc_crate) = ioc_crate {
-        return Ok(quote! { #ioc_crate });
+        Ok(quote! { #ioc_crate })
     } else {
         use proc_macro_crate::{crate_name, FoundCrate};
         match crate_name("ioc") {
@@ -54,7 +54,7 @@ mod meta {
                                                 Error::duplicate_field("name").with_span(item),
                                             );
                                         } else {
-                                            name = errors.handle(String::from_meta(&kv));
+                                            name = errors.handle(String::from_meta(kv));
                                         }
                                     }
                                     "default" => {
@@ -85,7 +85,7 @@ mod meta {
                                 if name.is_some() {}
                             }
                             NestedMeta::Lit(lit) => {
-                                return Err(Error::unexpected_lit_type(&lit));
+                                return Err(Error::unexpected_lit_type(lit));
                             }
                         }
                     }
@@ -380,7 +380,7 @@ impl BuildMethod<'_> {
         let Self { ident, fields, ioc } = *self;
 
         if !fields.is_struct() {
-            return Err(Error::unsupported_shape("only struct is supported").with_span(ident));
+            Err(Error::unsupported_shape("only struct is supported").with_span(ident))
         } else {
             let struct_fields = fields.as_ref().take_struct().expect("not here!");
 
@@ -485,7 +485,7 @@ mod test {
     #[test]
     fn it_works() {
         let input = r#"
-            #[mvc_macro(Bean)]
+            #[derive(Bean)]
             #[bean(ioc_crate = "ioc")]
             pub struct LogPatcher(
                 #[inject(default)]
@@ -514,7 +514,7 @@ mod test {
     #[test]
     fn construct() {
         let input = r#"
-            #[mvc_macro(Bean)]
+            #[derive(Bean)]
             #[bean(ioc_crate = "ioc", construct = "Init")]
             pub struct LogPatcher(
                 #[inject(default)]
@@ -543,7 +543,7 @@ mod test {
     #[test]
     fn test_inject_config() {
         let input = r#"
-            #[mvc_macro(Bean)]
+            #[derive(Bean)]
             #[bean(ioc_crate = "ioc")]
             pub struct WebConfig {
                 #[inject(config = "web.addr")]

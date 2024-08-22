@@ -67,19 +67,16 @@ impl CustomBeanSpecImpl {
                         let ident = &fun.sig.ident;
                         if ident.eq(&fn_name) {
                             impl_name = true;
-                        } else {
-                            if !ident.eq(&fn_drop) && !ident.eq(&fn_build) {
-                                return Err(
-                                    Error::custom(CUSTOM_BEAN_IMPL_ERROR_INFO).with_span(&ident)
-                                );
-                            }
+                        } else if !ident.eq(&fn_drop) && !ident.eq(&fn_build) {
+                            return Err(
+                                Error::custom(CUSTOM_BEAN_IMPL_ERROR_INFO).with_span(&ident)
+                            );
                         }
                     }
                     ImplItem::Type(bean_type) => {
                         if !(bean_type.ident.eq(&type_bean)) {
                             return Err(Error::custom(CUSTOM_BEAN_IMPL_ERROR_INFO)
                                 .with_span(&bean_type.ident));
-                        } else {
                         }
                     }
                     other => {
