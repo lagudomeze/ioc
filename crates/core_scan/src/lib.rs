@@ -13,6 +13,9 @@ pub use crate::{
 
 mod beans;
 mod error;
+mod export;
+mod scan2;
+
 mod scan;
 mod transport;
 
