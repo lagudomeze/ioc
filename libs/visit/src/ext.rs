@@ -5,7 +5,7 @@ use syn::{
     Path as SynPath,
 };
 
-pub(crate) struct ItemExt<'a, T> {
+pub struct ItemExt<'a, T> {
     mod_path: &'a SynPath,
     data: &'a T,
 }

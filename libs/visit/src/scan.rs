@@ -55,12 +55,7 @@ impl<V> Display for Scanner<'_, V> {
     }
 }
 
-static ROOT_MOD_PATH: SynPath = SynPath {
-    leading_colon: None,
-    segments: Default::default(),
-};
-
-impl<V> Scanner<'_, V> {
+impl<'a, V> Scanner<'a, V> {
     fn sub_src_file(&self, segment: impl ToString) -> (PathBuf, SynFile) {
         let mut path = self.root.to_path_buf();
         for segment in self.mod_path.segments.iter() {
@@ -92,11 +87,7 @@ impl<V> Scanner<'_, V> {
         parse_quote!(#parent::#segment)
     }
 
-    pub(crate) fn root<'a>(src_path: &'a FsPath) -> Scanner<'a, ()> {
-        Self::new(src_path, &ROOT_MOD_PATH)
-    }
-
-    pub(crate) fn new<'a>(src_path: &'a FsPath, mod_path: &'a SynPath) -> Scanner<'a, ()> {
+    pub(crate) fn new(src_path: &'a FsPath, mod_path: &'a SynPath, visit: &'a mut V) -> Self<> {
         let root = src_path
             .parent()
             .expect("file has no parent");
@@ -105,15 +96,6 @@ impl<V> Scanner<'_, V> {
             root,
             src_path,
             mod_path,
-            visit: &mut (),
-        }
-    }
-
-    pub(crate) fn with<'a, T>(self, visit: &'a mut T) -> Scanner<'a, T> {
-        Self {
-            root: self.root,
-            src_path: self.src_path,
-            mod_path: self.mod_path,
             visit,
         }
     }
