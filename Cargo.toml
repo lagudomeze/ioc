@@ -1,7 +1,8 @@
 [workspace]
 members = [
     "crates/*",
-    "libs/*"
+    "libs/*",
+    "utils/*"
 ]
 resolver = "2"
 
@@ -31,6 +32,7 @@ poem-openapi = { version = "5" }
 prettyplease = { version = "0.2" }
 darling = { version = "0.20" }
 proc-macro-crate = { version = "3" }
+cargo_metadata = { version = "0.18" }
 ioc = { path = "libs/ioc" }
 ioc_macro = { path = "libs/ioc_macro", default-features = false }
 ioc_core = { path = "crates/core" }
@@ -39,6 +41,12 @@ ioc_core_scan = { path = "crates/core_scan" }
 ioc_mvc = { path = "crates/mvc" }
 ioc_mvc_macro = { path = "crates/mvc_macro" }
 ioc_mvc_scan = { path = "crates/mvc_scan" }
+# boot
+boot_core = { path = "libs/boot_core" }
+boot_build = { path = "libs/boot_build" }
+boot_macro = { path = "libs/boot_macro" }
+# utils
+visit = { path = "utils/visit" }
 
 [workspace.dependencies.syn]
 version = "2"
