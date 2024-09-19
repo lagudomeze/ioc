@@ -1,7 +1,8 @@
-use quote::ToTokens;
-use visit::{SynPath, Visit};
+pub use quote::{quote, ToTokens};
+pub use visit::{ItemImplExt, ItemStructExt, SynPath, Visit};
 
 mod bootstraps;
+
 
 pub trait CrateBuilder: Visit {
     fn into_token_stream(self) -> impl ToTokens;
