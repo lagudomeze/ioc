@@ -1,5 +1,6 @@
 use crate::{BootBuilder, CompileBootstrap, CrateBuilder};
 use quote::{quote, ToTokens};
+use std::marker::PhantomData;
 use visit::{ItemImplExt, ItemStructExt, SynPath, Visit};
 
 pub struct Builders<T, U> {
@@ -59,8 +60,8 @@ where
 }
 
 pub struct Bootstraps<T, U> {
-    lft: T,
-    rht: U,
+    lft: PhantomData<T>,
+    rht: PhantomData<U>,
 }
 
 impl<T, U> CompileBootstrap for Bootstraps<T, U>
@@ -82,6 +83,39 @@ where
         Self::BootBuilder {
             lft: T::boot_build(),
             rht: U::boot_build(),
+        }
+    }
+}
+
+impl<U> CompileBootstrap for Bootstraps<(), U>
+where
+    U: CompileBootstrap,
+{
+    type CrateBuilder = U::CrateBuilder;
+    type BootBuilder = U::BootBuilder;
+
+    fn crate_build() -> Self::CrateBuilder {
+        U::crate_build()
+    }
+
+    fn boot_build() -> Self::BootBuilder {
+        U::boot_build()
+    }
+}
+
+impl<T, U> Bootstraps<T, U> {
+
+    pub fn new() -> Bootstraps<(), ()> {
+        Bootstraps {
+            lft: PhantomData::<()>,
+            rht: PhantomData::<()>,
+        }
+    }
+
+    pub fn append<V>(self) -> Bootstraps<Self, V> {
+        Bootstraps {
+            lft: PhantomData::<Self>,
+            rht: PhantomData::<V>,
         }
     }
 }
