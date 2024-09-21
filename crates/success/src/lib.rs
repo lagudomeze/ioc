@@ -54,4 +54,4 @@ impl BeanSpec for AnotherBeanA {
     }
 }
 
-export!();
+export!(root = "crates/success/src/lib.rs");

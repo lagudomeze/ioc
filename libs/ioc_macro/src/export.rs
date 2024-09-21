@@ -7,7 +7,6 @@ use ioc_core_scan::Transport;
 use ioc_core_scan::{export, Beans};
 #[cfg(feature = "mvc")]
 use ioc_mvc_scan::Mvcs;
-use proc_macro2::Span;
 
 #[derive(Default, FromMeta)]
 #[darling(default)]
@@ -20,10 +19,7 @@ pub fn generate(input: TokenStream) -> Result<TokenStream> {
     let metas = NestedMeta::parse_meta_list(input.into())?;
     let param = ExportParam::from_list(&metas)?;
 
-    let source_file = Span::mixed_site().source_file();
-    eprintln!("source_file: {:?}", &source_file);
-
-    let root = param.root.unwrap_or(source_file.path());
+    let root = param.root.unwrap_or(PathBuf::from("main.rs"));
     eprintln!("root: {:?}", &root);
     let transport = Beans::new().deps(&param.deps);
 
