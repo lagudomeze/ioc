@@ -104,7 +104,12 @@ impl InitContext for InitCtx {
         debug!("bean {:?} is pending! ", info);
 
         // The holder's `get_or_try_init` method will attempt to build the bean if it's not already initialized.
-        let result = B::build(self).map(|bean| B::holder().get_or_init(|| bean));
+        let result = if let Some(bean) = B::holder().get() {
+            Ok(bean)
+        } else {
+            B::build(self).map(|bean| B::holder().get_or_init(|| bean))
+        };
+
 
         let ready_bean = self
             .pending_chain
