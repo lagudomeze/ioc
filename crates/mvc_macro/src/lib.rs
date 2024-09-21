@@ -23,7 +23,7 @@ struct ItemImplPatch {
 
 impl VisitMut for ItemImplPatch {
     fn visit_item_impl_mut(&mut self, i: &mut ItemImpl) {
-        if self.api_trait_type.is_some() {
+        if self.api_trait_type.is_none() {
             // get the raw type and api trait type
             self.api_trait_type = Some(Self::new_api_trait(&i.self_ty));
 
@@ -127,7 +127,7 @@ impl ItemImplPatch {
         }) = api_trait_type
         {
             quote! {
-                 trait #api_trait {
+                trait #api_trait {
                     #(#methods_for_traits)*
                 }
 
