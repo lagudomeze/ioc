@@ -6,7 +6,7 @@ use poem::{
 };
 use poem_openapi::{
     OpenApi,
-    OpenApiService
+    OpenApiService,
 };
 use std::{collections::HashMap, path::PathBuf, time::Duration};
 use tracing::info;
@@ -101,8 +101,12 @@ where
     }
     let route = route
         .catch_all_error(|err| async move {
-            let code = err.status().as_u16();
             let msg = err.to_string();
+            let code = if err.status().is_client_error() {
+                400
+            } else {
+                500
+            };
 
             let json = serde_json::json!({
                 "code": code,
