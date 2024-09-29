@@ -4,7 +4,10 @@ use poem::{
     middleware::{Tracing, TracingEndpoint},
     Endpoint, EndpointExt, Middleware, Request, Response, Route, Server,
 };
-use poem_openapi::{OpenApi, OpenApiService};
+use poem_openapi::{
+    OpenApi,
+    OpenApiService
+};
 use std::{collections::HashMap, path::PathBuf, time::Duration};
 use tracing::info;
 
@@ -96,6 +99,20 @@ where
             route = route.nest(&mapping.path, endpoint);
         }
     }
+    let route = route
+        .catch_all_error(|err| async move {
+            let code = err.status().as_u16();
+            let msg = err.to_string();
+
+            let json = serde_json::json!({
+                "code": code,
+                "msg": msg,
+            }).to_string();
+
+            Response::builder()
+                .status(err.status())
+                .body(json)
+        });
 
     let app = route.with_if(config.tracing, CustomTracing::default());
 

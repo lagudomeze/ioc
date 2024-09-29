@@ -10,6 +10,7 @@ ioc_core = { workspace = true }
 ioc_core_macro = { workspace = true }
 tracing = { workspace = true }
 cfg-rs = { workspace = true }
+serde_json = { workspace = true }
 
 [dependencies.poem]
 workspace = true

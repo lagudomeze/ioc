@@ -25,6 +25,7 @@ thiserror = "1"
 proc-macro2 = "1"
 quote = "1"
 serde = { version = "1" }
+serde_json = { version = "1" }
 toml = "0.8"
 poem = { version = "3" }
 poem-openapi = { version = "5" }
