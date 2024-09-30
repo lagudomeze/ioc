@@ -16,6 +16,10 @@ pub trait Visit {
     fn item_impl(&mut self, _: &ItemImplExt<'_>) {}
 }
 
+impl Visit for () {
+
+}
+
 pub fn scan<T: Visit>(visit: &mut T, file: &Path) {
     let root = SynPath {
         leading_colon: None,
